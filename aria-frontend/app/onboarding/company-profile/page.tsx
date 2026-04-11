@@ -24,6 +24,7 @@ const ctaTypes: CTAType[] = ["learn_more", "book_demo", "buy_now", "download", "
 export default function CompanyProfilePage() {
   const router = useRouter();
   const setCompanyId = useCompanyStore((s) => s.setCompanyId);
+  const setProfile = useCompanyStore((s) => s.setProfile);
 
   const form = useForm<CompanyProfileForm>({
     resolver: zodResolver(CompanyProfileSchema),
@@ -66,6 +67,7 @@ export default function CompanyProfilePage() {
   const mutation = useMutation({
     mutationFn: (payload: CompanyProfileForm) => submitCompanyProfile(payload),
     onSuccess: (data) => {
+      setProfile(form.getValues());
       setCompanyId(data.company_id);
       setClientCompanyId(data.company_id);
       toast.success("Company profile saved");
@@ -147,19 +149,24 @@ export default function CompanyProfilePage() {
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">Posting frequency goal</p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {platforms.map((platform) => (
-              <label key={platform} className="space-y-1 rounded-lg border p-2 text-sm capitalize">
-                <span>{platform}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={POSTING_FREQUENCY_LIMITS[platform]}
-                  {...form.register(`posting_frequency_goal.${platform}`, { valueAsNumber: true })}
-                  className="w-full rounded border px-2 py-1"
-                />
-              </label>
-            ))}
+            {platforms
+              .filter((platform) => values.platform_presence[platform])
+              .map((platform) => (
+                <label key={platform} className="space-y-1 rounded-lg border p-2 text-sm capitalize">
+                  <span>{platform}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={POSTING_FREQUENCY_LIMITS[platform]}
+                    {...form.register(`posting_frequency_goal.${platform}`, { valueAsNumber: true })}
+                    className="w-full rounded border px-2 py-1"
+                  />
+                </label>
+              ))}
           </div>
+          {platforms.every((platform) => !values.platform_presence[platform]) ? (
+            <p className="text-xs text-amber-700">Enable at least one platform in platform presence to set posting frequency goals.</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -191,7 +198,42 @@ export default function CompanyProfilePage() {
         <Controller
           control={form.control}
           name="brand_color_hex_codes"
-          render={({ field }) => <TagInput label="Brand colors (hex)" values={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Brand colors</label>
+              <div className="flex flex-wrap items-center gap-2">
+                {field.value.map((color, idx) => (
+                  <div key={`${color}-${idx}`} className="flex items-center gap-2 rounded-lg border px-2 py-1">
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => {
+                        const next = [...field.value];
+                        next[idx] = e.target.value.toUpperCase();
+                        field.onChange(next);
+                      }}
+                      className="h-7 w-10 rounded border"
+                    />
+                    <span className="font-mono text-xs text-slate-600">{color.toUpperCase()}</span>
+                    <button
+                      type="button"
+                      className="text-xs text-red-600"
+                      onClick={() => field.onChange(field.value.filter((_, i) => i !== idx))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="rounded-lg border px-2 py-1 text-xs text-slate-700"
+                  onClick={() => field.onChange([...field.value, "#000000"])}
+                >
+                  Add color
+                </button>
+              </div>
+            </div>
+          )}
         />
 
         <Controller

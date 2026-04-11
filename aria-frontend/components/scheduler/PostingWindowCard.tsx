@@ -15,6 +15,8 @@ interface Props {
 }
 
 export const PostingWindowCard = ({ window, platform, selected, onSelect }: Props) => {
+  const cooldownHours = PLATFORM_COOLDOWN_MINUTES[platform] / 60;
+
   return (
     <button
       type="button"
@@ -41,7 +43,7 @@ export const PostingWindowCard = ({ window, platform, selected, onSelect }: Prop
           </span>
         ))}
       </div>
-      <p className="mt-2 text-xs text-slate-500">Min gap: {PLATFORM_COOLDOWN_MINUTES[platform]}h</p>
+      <p className="mt-2 text-xs text-slate-500">Min gap: {cooldownHours}h</p>
     </button>
   );
 };

@@ -4,13 +4,14 @@
 
 import { create } from "zustand";
 
-import type { AgencyWorkspace, OnboardingStatus, Platform, PlatformCredentialStatus, UserRole } from "@/types";
+import type { AgencyWorkspace, CompanyProfileForm, OnboardingStatus, Platform, PlatformCredentialStatus, UserRole } from "@/types";
 
 const disconnectedState: PlatformCredentialStatus = { status: "disconnected" };
 
 interface CompanyState {
   companyId: string | null;
   companyName: string | null;
+  profile: CompanyProfileForm | null;
   onboardingStep: number;
   onboardingScore: number | null;
   onboardingStatus: string | null;
@@ -20,6 +21,7 @@ interface CompanyState {
   workspaces: AgencyWorkspace[];
   activeWorkspaceId: string | null;
   setCompanyId: (id: string) => void;
+  setProfile: (profile: CompanyProfileForm) => void;
   setOnboardingProgress: (status: OnboardingStatus) => void;
   updatePlatformCredential: (platform: Platform, status: PlatformCredentialStatus) => void;
   setActiveRole: (role: UserRole) => void;
@@ -29,6 +31,7 @@ interface CompanyState {
 export const useCompanyStore = create<CompanyState>((set) => ({
   companyId: null,
   companyName: null,
+  profile: null,
   onboardingStep: 1,
   onboardingScore: null,
   onboardingStatus: null,
@@ -45,6 +48,7 @@ export const useCompanyStore = create<CompanyState>((set) => ({
   workspaces: [],
   activeWorkspaceId: null,
   setCompanyId: (id) => set({ companyId: id }),
+  setProfile: (profile) => set({ profile, companyName: profile.company_name }),
   setOnboardingProgress: (status) =>
     set({
       onboardingStep: status.step,

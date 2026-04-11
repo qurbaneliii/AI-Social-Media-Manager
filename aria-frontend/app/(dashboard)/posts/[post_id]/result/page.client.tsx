@@ -9,14 +9,17 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AudienceConfidenceBadge } from "@/components/audience/AudienceConfidenceBadge";
 import { HashtagTierDisplay } from "@/components/hashtags/HashtagTierDisplay";
+import { LLMProviderBadge } from "@/components/posts/LLMProviderBadge";
 import { PlatformPreviewCard } from "@/components/posts/PlatformPreviewCard";
+import { QualityScoreGauge } from "@/components/posts/QualityScoreGauge";
 import { VariantScoreRadar } from "@/components/posts/VariantScoreRadar";
-import { LLMProviderBadge } from "@/components/ui/LLMProviderBadge";
-import { QualityScoreGauge } from "@/components/ui/QualityScoreGauge";
-import { AUDIENCE_CONFIDENCE_THRESHOLDS, QUALITY_SCORE_THRESHOLDS } from "@/config/constants";
+import { PostingWindowCard } from "@/components/scheduler/PostingWindowCard";
+import { TagInput } from "@/components/ui/TagInput";
+import { AUDIENCE_CONFIDENCE_THRESHOLDS, PLATFORM_CHAR_LIMITS, PLATFORM_HASHTAG_CAPS, QUALITY_SCORE_THRESHOLDS } from "@/config/constants";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePostResult } from "@/hooks/usePostResult";
 import { usePostStore } from "@/stores/usePostStore";
+import { useSchedulerStore } from "@/stores/useSchedulerStore";
 import { useUIStore } from "@/stores/useUIStore";
 import type { Platform } from "@/types";
 
@@ -32,6 +35,8 @@ export default function PostResultPageClient() {
   const selectedVariant = usePostStore((s) => s.selectedVariantPerPlatform);
   const selectVariant = usePostStore((s) => s.selectVariant);
   const estimate = usePostStore((s) => s.estimatedReadySeconds);
+  const selectedWindows = useSchedulerStore((s) => s.selectedWindows);
+  const selectWindow = useSchedulerStore((s) => s.selectWindow);
 
   const activeTab = useUIStore((s) => s.activePostResultTab);
   const setTab = useUIStore((s) => s.setPostResultTab);
@@ -42,6 +47,12 @@ export default function PostResultPageClient() {
   usePostResult(postId);
 
   const [secondsLeft, setSecondsLeft] = useState(estimate ?? 0);
+  const [seoDraft, setSeoDraft] = useState<{
+    meta_title: string;
+    meta_description: string;
+    alt_text: string;
+    keywords: string[];
+  } | null>(null);
 
   useEffect(() => {
     setSecondsLeft(estimate ?? 0);
@@ -68,6 +79,11 @@ export default function PostResultPageClient() {
   const variantsForPlatform = (generatedPackage?.variants ?? []).filter((v) => v.platform === activePlatformTab);
   const selected = variantsForPlatform.find((v) => v.variant_id === selectedVariant[activePlatformTab ?? ""]);
   const chosenVariant = selected ?? variantsForPlatform[0];
+
+  useEffect(() => {
+    if (!generatedPackage) return;
+    setSeoDraft(generatedPackage.seo_metadata);
+  }, [generatedPackage]);
 
   if (generationStatus === "failed") {
     return (
@@ -141,7 +157,7 @@ export default function PostResultPageClient() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <div className="space-y-3">
-              {variantsForPlatform.map((variant) => {
+              {variantsForPlatform.slice(0, 3).map((variant) => {
                 const isSelected = chosenVariant?.variant_id === variant.variant_id;
                 return (
                   <button
@@ -153,11 +169,15 @@ export default function PostResultPageClient() {
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs text-slate-500">{variant.variant_id}</span>
                       <div className="flex items-center gap-2">
-                        <LLMProviderBadge provider={variant.provider_used ?? "unknown"} />
-                        {variant.cached ? <span className="rounded bg-slate-100 px-2 py-1 text-[10px] text-slate-600">cached</span> : null}
+                        <LLMProviderBadge providerUsed={variant.provider_used ?? "unknown"} cached={Boolean(variant.cached)} />
                       </div>
                     </div>
                     <p className="line-clamp-3 text-sm text-slate-800">{variant.text}</p>
+                    {variant.char_count > PLATFORM_CHAR_LIMITS[variant.platform] ? (
+                      <p className="mt-2 text-xs text-red-600">
+                        Exceeds {variant.platform} limit by {variant.char_count - PLATFORM_CHAR_LIMITS[variant.platform]} characters.
+                      </p>
+                    ) : null}
                   </button>
                 );
               })}
@@ -185,7 +205,11 @@ export default function PostResultPageClient() {
       ) : null}
 
       {activeTab === "hashtags" && activePlatformTab ? (
-        <HashtagTierDisplay hashtagSet={generatedPackage.hashtag_set} activePlatform={activePlatformTab} />
+        <HashtagTierDisplay
+          hashtagSet={generatedPackage.hashtag_set}
+          activePlatform={activePlatformTab}
+          platformCap={PLATFORM_HASHTAG_CAPS[activePlatformTab]}
+        />
       ) : null}
 
       {activeTab === "audience" ? (
@@ -205,11 +229,15 @@ export default function PostResultPageClient() {
           {generatedPackage.posting_schedule_recommendation.map((item) => (
             <article key={item.platform} className="rounded-xl border p-3">
               <h3 className="mb-2 text-sm font-semibold capitalize text-slate-900">{item.platform}</h3>
-              <div className="space-y-2">
-                {item.windows.map((window) => (
-                  <p key={`${window.start_local}-${window.rank}`} className="text-sm text-slate-700">
-                    Rank {window.rank}: {new Date(window.start_local).toLocaleString()} ({Math.round(window.confidence * 100)}%)
-                  </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {item.windows.slice(0, 3).map((window) => (
+                  <PostingWindowCard
+                    key={`${window.start_local}-${window.rank}`}
+                    window={window}
+                    platform={item.platform}
+                    selected={selectedWindows[item.platform]?.start_local === window.start_local}
+                    onSelect={() => selectWindow(item.platform, window)}
+                  />
                 ))}
               </div>
             </article>
@@ -219,28 +247,52 @@ export default function PostResultPageClient() {
 
       {activeTab === "seo" ? (
         <section className="space-y-2 text-sm text-slate-700">
-          <p>
-            <span className="font-semibold text-slate-900">Title:</span> {generatedPackage.seo_metadata.meta_title}
-          </p>
-          <p>
-            <span className="font-semibold text-slate-900">Description:</span> {generatedPackage.seo_metadata.meta_description}
-          </p>
-          <p>
-            <span className="font-semibold text-slate-900">Alt text:</span> {generatedPackage.seo_metadata.alt_text}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {generatedPackage.seo_metadata.keywords.map((keyword) => (
-              <span key={keyword} className="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">
-                {keyword}
-              </span>
-            ))}
-          </div>
+          <label className="block space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900">Title</span>
+              <span className="text-xs text-slate-500">{seoDraft?.meta_title.length ?? 0}/60</span>
+            </div>
+            <input
+              value={seoDraft?.meta_title ?? ""}
+              onChange={(e) => setSeoDraft((prev) => (prev ? { ...prev, meta_title: e.target.value } : prev))}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="block space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900">Description</span>
+              <span className="text-xs text-slate-500">{seoDraft?.meta_description.length ?? 0}/160</span>
+            </div>
+            <textarea
+              value={seoDraft?.meta_description ?? ""}
+              onChange={(e) => setSeoDraft((prev) => (prev ? { ...prev, meta_description: e.target.value } : prev))}
+              rows={3}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="block space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900">Alt text</span>
+              <span className="text-xs text-slate-500">{seoDraft?.alt_text.length ?? 0}/220</span>
+            </div>
+            <textarea
+              value={seoDraft?.alt_text ?? ""}
+              onChange={(e) => setSeoDraft((prev) => (prev ? { ...prev, alt_text: e.target.value } : prev))}
+              rows={2}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <TagInput
+            label="Keywords"
+            values={seoDraft?.keywords ?? []}
+            onChange={(keywords) => setSeoDraft((prev) => (prev ? { ...prev, keywords } : prev))}
+          />
         </section>
       ) : null}
 
       {activeTab === "quality" ? (
         <section className="space-y-4">
-          <QualityScoreGauge score={generatedPackage.content_quality_score.overall} />
+          <QualityScoreGauge score={generatedPackage.content_quality_score} />
           {generatedPackage.content_quality_score.overall < QUALITY_SCORE_THRESHOLDS.warning ? (
             <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">Overall quality is low. Revise prompt and regenerate.</p>
           ) : generatedPackage.content_quality_score.overall < QUALITY_SCORE_THRESHOLDS.good ? (

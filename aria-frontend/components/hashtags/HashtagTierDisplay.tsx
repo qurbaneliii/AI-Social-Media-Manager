@@ -10,11 +10,12 @@ import type { HashtagSet, Platform } from "@/types";
 interface Props {
   hashtagSet: HashtagSet;
   activePlatform: Platform;
+  platformCap?: number;
   onToggle?: (tag: string) => void;
 }
 
-export const HashtagTierDisplay = ({ hashtagSet, activePlatform, onToggle }: Props) => {
-  const cap = PLATFORM_HASHTAG_CAPS[activePlatform];
+export const HashtagTierDisplay = ({ hashtagSet, activePlatform, platformCap, onToggle }: Props) => {
+  const cap = platformCap ?? PLATFORM_HASHTAG_CAPS[activePlatform];
 
   const columns = [
     { title: "Broad", items: hashtagSet.broad },
@@ -27,14 +28,18 @@ export const HashtagTierDisplay = ({ hashtagSet, activePlatform, onToggle }: Pro
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
-        {columns.map((column) => (
+        {columns.map((column, columnIndex) => {
+          const prefixCount = columns.slice(0, columnIndex).reduce((acc, item) => acc + item.items.length, 0);
+
+          return (
           <section key={column.title} className="rounded-xl border bg-white p-3">
             <header className="mb-3 text-sm font-semibold text-slate-700">
               {column.title} ({Math.min(column.items.length, cap)}/{cap} max)
             </header>
             <div className="space-y-2">
               {column.items.map((item, idx) => {
-                const overCap = idx >= cap;
+                const globalIndex = prefixCount + idx;
+                const overCap = globalIndex >= cap;
                 return (
                   <button
                     key={`${column.title}-${item.tag}-${idx}`}
@@ -54,7 +59,8 @@ export const HashtagTierDisplay = ({ hashtagSet, activePlatform, onToggle }: Pro
               })}
             </div>
           </section>
-        ))}
+          );
+        })}
       </div>
       <p className="text-sm text-slate-600">{total} tags selected (cap: {cap})</p>
     </div>

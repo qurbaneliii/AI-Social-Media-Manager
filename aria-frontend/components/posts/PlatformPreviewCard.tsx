@@ -9,21 +9,23 @@ import type { Platform, PostVariant } from "@/types";
 interface Props {
   platform: Platform;
   variant: PostVariant;
+  charLimit?: number;
   imageUrl?: string | null;
   hashtags?: string[];
   ctaText?: string | null;
 }
 
-export const PlatformPreviewCard = ({ platform, variant, imageUrl, hashtags = [], ctaText }: Props) => {
-  const limit = PLATFORM_CHAR_LIMITS[platform];
-  const count = variant.text.length;
+export const PlatformPreviewCard = ({ platform, variant, charLimit, imageUrl, hashtags = [], ctaText }: Props) => {
+  const limit = charLimit ?? PLATFORM_CHAR_LIMITS[platform];
+  const count = variant.char_count;
   const overLimit = count > limit;
+  const nearLimit = !overLimit && count >= Math.floor(limit * 0.9);
 
   return (
     <article className="rounded-xl border bg-white p-4">
       <header className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold capitalize text-slate-800">{platform} preview</h3>
-        <span className={`text-xs ${overLimit ? "text-red-600" : "text-slate-500"}`}>
+        <span className={`text-xs ${overLimit ? "text-red-600" : nearLimit ? "text-amber-600" : "text-emerald-600"}`}>
           {count}/{limit}
         </span>
       </header>

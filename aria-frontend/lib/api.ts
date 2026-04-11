@@ -97,10 +97,18 @@ export const submitCompanyProfile = async (
   });
 };
 
-export const updateVocabulary = async (company_id: string, approved: string[], banned: string[]): Promise<void> => {
+export const updateVocabulary = async (
+  company_id: string,
+  approved_vocabulary_list: string[],
+  banned_vocabulary_list: string[]
+): Promise<void> => {
   await requestJson<void>("/v1/onboarding/vocabulary", {
     method: "POST",
-    body: JSON.stringify({ company_id, approved, banned })
+    body: JSON.stringify({
+      company_id,
+      approved_vocabulary_list,
+      banned_vocabulary_list
+    })
   });
 };
 

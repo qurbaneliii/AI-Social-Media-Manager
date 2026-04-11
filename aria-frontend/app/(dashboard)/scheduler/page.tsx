@@ -7,6 +7,7 @@ import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ScheduleStatusBadge } from "@/components/scheduler/ScheduleStatusBadge";
+import { RETRY_JITTER_PERCENT, RETRY_SCHEDULE_SECONDS } from "@/config/constants";
 import { approveSchedule, getSchedule } from "@/lib/api";
 import { useSchedulerStore } from "@/stores/useSchedulerStore";
 
@@ -52,17 +53,34 @@ export default function SchedulerPage() {
           const data = query.data as any;
           const status = (data?.status ?? "failed") as any;
           const retryAt = data?.next_retry_at ?? data?.retry_at ?? null;
+          const retryCount = data?.retry_count ?? undefined;
+          const maxRetries = data?.max_retries ?? RETRY_SCHEDULE_SECONDS.length;
           const runAt = data?.run_at_utc ?? data?.target?.run_at_utc ?? "-";
           const platform = data?.platform ?? data?.target?.platform ?? "unknown";
+          const errorCode = data?.error_code ?? null;
+          const errorMessage = data?.error_message ?? null;
 
           return (
             <article key={scheduleId} className="rounded-xl border p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-slate-900">{scheduleId}</h2>
-                <ScheduleStatusBadge status={status} retryAt={retryAt} />
+                <ScheduleStatusBadge status={status} retryCount={retryCount} maxRetries={maxRetries} nextRetryAt={retryAt} />
               </div>
               <p className="text-sm text-slate-700">Platform: {platform}</p>
               <p className="text-sm text-slate-700">Run at: {runAt}</p>
+
+              {status === "failed" ? (
+                <p className="mt-2 text-xs text-amber-700" title="Attempt schedule: +1m, +5m, +15m, +45m, +120m with ±20% jitter">
+                  Retry schedule: +1m, +5m, +15m, +45m, +120m (±{Math.round(RETRY_JITTER_PERCENT * 100)}% jitter)
+                </p>
+              ) : null}
+
+              {status === "dead_letter" ? (
+                <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  <p>Error code: {errorCode ?? "unknown"}</p>
+                  <p>Error message: {errorMessage ?? "No message provided"}</p>
+                </div>
+              ) : null}
 
               {status === "awaiting_approval" ? (
                 <button

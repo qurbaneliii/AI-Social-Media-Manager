@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 
 import { FileDropzone } from "@/components/ui/FileDropzone";
+import { PLATFORM_CHAR_LIMITS } from "@/config/constants";
 import { TagInput } from "@/components/ui/TagInput";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePresignUpload } from "@/hooks/usePresignUpload";
@@ -46,6 +47,12 @@ export default function NewPostPage() {
     return <div className="rounded-xl border bg-white p-6 text-sm text-red-700">Company ID is required. Return to sign in.</div>;
   }
 
+  const selectedPlatforms = form.watch("target_platforms");
+  const strictestLimit = selectedPlatforms.length
+    ? Math.min(...selectedPlatforms.map((platform) => PLATFORM_CHAR_LIMITS[platform]))
+    : 0;
+  const coreMessageLength = form.watch("core_message").length;
+
   return (
     <main className="space-y-6 rounded-2xl border bg-white p-6">
       <header>
@@ -64,18 +71,31 @@ export default function NewPostPage() {
       >
         <label className="block space-y-1 text-sm">
           <span className="text-slate-700">Post intent</span>
-          <select {...form.register("post_intent")} className="w-full rounded-lg border px-3 py-2">
+          <div className="flex flex-wrap gap-2">
             {intents.map((intent) => (
-              <option key={intent} value={intent}>
+              <button
+                key={intent}
+                type="button"
+                onClick={() => form.setValue("post_intent", intent, { shouldValidate: true })}
+                className={`rounded-full px-3 py-1 text-xs ${form.watch("post_intent") === intent ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+              >
                 {intent}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </label>
 
         <label className="block space-y-1 text-sm">
-          <span className="text-slate-700">Core message</span>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-700">Core message</span>
+            <span className={`text-xs ${strictestLimit > 0 && coreMessageLength > strictestLimit ? "text-red-600" : "text-slate-500"}`}>
+              {coreMessageLength}/{strictestLimit || 500}
+            </span>
+          </div>
           <textarea {...form.register("core_message")} rows={5} className="w-full rounded-lg border px-3 py-2" />
+          {strictestLimit > 0 && coreMessageLength > strictestLimit ? (
+            <p className="text-xs text-red-600">Core message exceeds strictest selected platform limit by {coreMessageLength - strictestLimit} characters.</p>
+          ) : null}
         </label>
 
         <div className="space-y-2">
@@ -95,7 +115,7 @@ export default function NewPostPage() {
                   }}
                   className={`rounded-full px-3 py-1 text-xs capitalize ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
                 >
-                  {platform}
+                  {platform} ({PLATFORM_CHAR_LIMITS[platform]})
                 </button>
               );
             })}
@@ -116,10 +136,27 @@ export default function NewPostPage() {
 
           <label className="space-y-1 text-sm">
             <span className="text-slate-700">Urgency</span>
-            <select {...form.register("urgency_level")} className="w-full rounded-lg border px-3 py-2">
-              <option value="immediate">immediate</option>
-              <option value="scheduled">scheduled</option>
-            </select>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  form.setValue("urgency_level", "scheduled", { shouldValidate: true });
+                }}
+                className={`rounded-full px-3 py-1 text-xs ${form.watch("urgency_level") === "scheduled" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+              >
+                Schedule later
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  form.setValue("urgency_level", "immediate", { shouldValidate: true });
+                  form.setValue("requested_publish_at", undefined, { shouldValidate: true });
+                }}
+                className={`rounded-full px-3 py-1 text-xs ${form.watch("urgency_level") === "immediate" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+              >
+                Publish now
+              </button>
+            </div>
           </label>
         </div>
 

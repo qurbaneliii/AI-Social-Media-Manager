@@ -23,13 +23,15 @@ export default function PlatformsPage() {
 
   const callback = useMemo(() => {
     if (typeof window === "undefined") {
-      return { platform: null, status: null, error: null };
+      return { platform: null, status: null, error: null, account_ref: null, token_expires_at: null };
     }
     const params = new URLSearchParams(window.location.search);
     return {
       platform: params.get("platform"),
       status: params.get("status"),
-      error: params.get("error")
+      error: params.get("error"),
+      account_ref: params.get("account_ref"),
+      token_expires_at: params.get("token_expires_at")
     };
   }, []);
 
@@ -44,9 +46,19 @@ export default function PlatformsPage() {
     }
 
     if (callback.status === "connected") {
-      updateCredential(platform, { status: "connected", updated_at: new Date().toISOString() });
+      updateCredential(platform, {
+        status: "connected",
+        account_ref: callback.account_ref ?? undefined,
+        token_expires_at: callback.token_expires_at ?? undefined,
+        updated_at: new Date().toISOString()
+      });
     } else if (callback.status === "expired") {
-      updateCredential(platform, { status: "expired", updated_at: new Date().toISOString() });
+      updateCredential(platform, {
+        status: "expired",
+        account_ref: callback.account_ref ?? undefined,
+        token_expires_at: callback.token_expires_at ?? undefined,
+        updated_at: new Date().toISOString()
+      });
     }
   }, [callback, updateCredential]);
 
@@ -73,6 +85,12 @@ export default function PlatformsPage() {
         <div className="grid gap-3 md:grid-cols-2">
           {platforms.map((platform) => {
             const status = credentials[platform]?.status ?? "disconnected";
+            const accountRef = credentials[platform]?.account_ref;
+            const tokenExpiresAt = credentials[platform]?.token_expires_at;
+            const expiresSoon =
+              Boolean(tokenExpiresAt) &&
+              new Date(tokenExpiresAt as string).getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000 &&
+              new Date(tokenExpiresAt as string).getTime() > Date.now();
             const color = status === "connected" ? "bg-emerald-100 text-emerald-700" : status === "expired" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700";
 
             return (
@@ -87,6 +105,9 @@ export default function PlatformsPage() {
                 >
                   {status === "connected" ? "Reconnect" : "Connect"}
                 </a>
+                {accountRef ? <p className="mt-2 text-xs text-slate-600">Account: {accountRef}</p> : null}
+                {tokenExpiresAt ? <p className="mt-1 text-xs text-slate-500">Token expires: {new Date(tokenExpiresAt).toLocaleString()}</p> : null}
+                {expiresSoon ? <p className="mt-1 text-xs text-amber-700">Token expires within 7 days</p> : null}
               </article>
             );
           })}
