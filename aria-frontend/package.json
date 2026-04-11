@@ -1,6 +1,7 @@
 {
   "name": "aria-frontend",
   "version": "1.0.0",
+  "homepage": "https://qurbaneliii.github.io/AI-Social-Media-Manager/",
   "private": true,
   "scripts": {
     "dev": "next dev",
