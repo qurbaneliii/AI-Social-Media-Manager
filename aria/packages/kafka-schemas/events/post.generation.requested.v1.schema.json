@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/post.generation.requested.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "post.generation.requested.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["post_id", "target_platforms", "requested_at"],
+          "properties": {
+            "post_id": { "type": "string", "format": "uuid" },
+            "target_platforms": {
+              "type": "array",
+              "items": { "enum": ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"] },
+              "minItems": 1
+            },
+            "requested_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/post.published.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "post.published.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["schedule_id", "post_id", "platform", "external_post_id", "published_at"],
+          "properties": {
+            "schedule_id": { "type": "string", "format": "uuid" },
+            "post_id": { "type": "string", "format": "uuid" },
+            "platform": { "enum": ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"] },
+            "external_post_id": { "type": "string", "minLength": 1 },
+            "published_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

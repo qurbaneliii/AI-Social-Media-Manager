@@ -1,0 +1,35 @@
+{
+  "name": "@aria/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aria/types": "workspace:*",
+    "@aws-sdk/client-kms": "^3.670.0",
+    "@aws-sdk/client-s3": "^3.670.0",
+    "@aws-sdk/s3-request-presigner": "^3.670.0",
+    "@nestjs/common": "^10.4.3",
+    "@nestjs/core": "^10.4.3",
+    "@nestjs/platform-fastify": "^10.4.3",
+    "@prisma/client": "^5.20.0",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "jose": "^5.9.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "testcontainers": "^10.12.2",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

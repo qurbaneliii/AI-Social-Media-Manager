@@ -1,0 +1,30 @@
+# FILE: apps/content-analysis/config.py
+from __future__ import annotations
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    database_url: str = Field(..., alias="DATABASE_URL")
+    redis_url: str = Field(..., alias="REDIS_URL")
+    s3_bucket: str = Field(..., alias="S3_BUCKET")
+    llm_proxy_url: str = Field(..., alias="LLM_PROXY_URL")
+    service_name: str = Field(..., alias="SERVICE_NAME")
+    service_version: str = Field(..., alias="SERVICE_VERSION")
+    otlp_endpoint: str = Field(..., alias="OTLP_ENDPOINT")
+    log_level: str = Field("INFO", alias="LOG_LEVEL")
+    aws_region: str = Field(..., alias="AWS_REGION")
+    kms_key_id: str = Field(..., alias="KMS_KEY_ID")
+
+    descriptive_prior_weight: float = Field(0.40, alias="DESCRIPTIVE_PRIOR_WEIGHT")
+    corpus_stats_weight: float = Field(0.35, alias="CORPUS_STATS_WEIGHT")
+    engagement_delta_weight: float = Field(0.25, alias="ENGAGEMENT_DELTA_WEIGHT")
+    sparse_sample_confidence_cap: float = Field(0.65, alias="SPARSE_SAMPLE_CONFIDENCE_CAP")
+    language_confidence_threshold: float = Field(0.8, alias="LANGUAGE_CONFIDENCE_THRESHOLD")
+
+
+def get_settings() -> Settings:
+    return Settings()

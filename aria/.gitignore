@@ -1,0 +1,21 @@
+# Node
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+
+# Env
+.env
+.env.local
+
+# Build
+.turbo/
+*.log

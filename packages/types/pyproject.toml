@@ -1,0 +1,12 @@
+# FILE: packages/types/pyproject.toml
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aria-types-shared"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic==2.11.3"
+]

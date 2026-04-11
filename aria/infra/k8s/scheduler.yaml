@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  labels:
+    app: scheduler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: ghcr.io/qurbaneliii/aria-scheduler:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: aria-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler
+spec:
+  selector:
+    app: scheduler
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/module.result.ready.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "module.result.ready.v1" },
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["module", "post_id", "hashtags", "seo"],
+              "properties": {
+                "module": { "const": "hashtag_seo" },
+                "post_id": { "type": "string", "format": "uuid" },
+                "hashtags": { "type": "array", "items": { "type": "string" } },
+                "seo": { "type": "object" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["module", "post_id", "audience"],
+              "properties": {
+                "module": { "const": "audience_targeting" },
+                "post_id": { "type": "string", "format": "uuid" },
+                "audience": { "type": "object" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["module", "post_id", "ranked_windows"],
+              "properties": {
+                "module": { "const": "time_optimization" },
+                "post_id": { "type": "string", "format": "uuid" },
+                "ranked_windows": { "type": "array", "items": { "type": "object" } }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["module", "post_id", "captions"],
+              "properties": {
+                "module": { "const": "caption_generation" },
+                "post_id": { "type": "string", "format": "uuid" },
+                "captions": { "type": "array", "items": { "type": "object" }, "minItems": 3 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

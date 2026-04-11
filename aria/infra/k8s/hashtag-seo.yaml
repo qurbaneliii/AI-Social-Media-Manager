@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hashtag-seo
+  labels:
+    app: hashtag-seo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hashtag-seo
+  template:
+    metadata:
+      labels:
+        app: hashtag-seo
+    spec:
+      containers:
+        - name: hashtag-seo
+          image: ghcr.io/qurbaneliii/aria-hashtag-seo:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: aria-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hashtag-seo
+spec:
+  selector:
+    app: hashtag-seo
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

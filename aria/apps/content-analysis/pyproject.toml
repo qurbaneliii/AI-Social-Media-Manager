@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aria-content-analysis"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.115.2",
+  "uvicorn[standard]==0.30.6",
+  "pydantic==2.9.2",
+  "psycopg[binary]==3.2.3",
+  "spacy==3.8.2",
+  "scikit-learn==1.5.2",
+  "bertopic==0.16.4",
+  "sentence-transformers==3.2.1",
+  "sqlalchemy==2.0.36",
+  "redis==5.1.1",
+  "opentelemetry-api==1.28.2",
+  "opentelemetry-sdk==1.28.2",
+  "opentelemetry-instrumentation-fastapi==0.49b2"
+]

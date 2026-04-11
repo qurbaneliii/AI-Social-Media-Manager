@@ -1,0 +1,16 @@
+# FILE: apps/time-optimization/requirements.txt
+fastapi==0.115.12
+uvicorn==0.34.1
+pydantic==2.11.3
+pydantic-settings==2.8.1
+structlog==25.2.0
+opentelemetry-sdk==1.31.1
+opentelemetry-exporter-otlp==1.31.1
+asyncpg==0.30.0
+redis==5.2.1
+httpx==0.28.1
+pytest==8.3.5
+pytest-asyncio==0.25.3
+aiobotocore==2.21.1
+lightgbm==4.6.0
+numpy==2.2.4

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/brand.voice.ready.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "brand.voice.ready.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["profile_version", "embedding_count", "ready_at"],
+          "properties": {
+            "profile_version": { "type": "integer", "minimum": 1 },
+            "embedding_count": { "type": "integer", "minimum": 0 },
+            "ready_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

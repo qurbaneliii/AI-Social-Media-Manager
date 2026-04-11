@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/brand.visual.ready.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "brand.visual.ready.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["media_id", "analysis_id", "ready_at"],
+          "properties": {
+            "media_id": { "type": "string", "format": "uuid" },
+            "analysis_id": { "type": "string", "format": "uuid" },
+            "ready_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

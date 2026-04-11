@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/media.uploaded.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "media.uploaded.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["media_id", "s3_key", "mime_type", "uploaded_at"],
+          "properties": {
+            "media_id": { "type": "string", "format": "uuid" },
+            "s3_key": { "type": "string", "minLength": 1 },
+            "mime_type": { "type": "string", "minLength": 3 },
+            "uploaded_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

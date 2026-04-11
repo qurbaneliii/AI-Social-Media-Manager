@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/envelope.schema.json",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "tenant_id",
+    "company_id",
+    "payload",
+    "schema_version",
+    "emitted_at"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "type": "string" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "company_id": { "type": "string", "format": "uuid" },
+    "payload": { "type": "object" },
+    "schema_version": { "type": "integer", "const": 1 },
+    "emitted_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

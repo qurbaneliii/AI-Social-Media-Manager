@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/performance.metrics.ingested.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "performance.metrics.ingested.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["post_id", "platform", "ingested_count", "captured_at"],
+          "properties": {
+            "post_id": { "type": "string", "format": "uuid" },
+            "platform": { "enum": ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"] },
+            "ingested_count": { "type": "integer", "minimum": 1 },
+            "captured_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

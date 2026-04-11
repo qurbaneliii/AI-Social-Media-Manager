@@ -1,0 +1,11 @@
+{
+  "saas": {
+    "linkedin": [
+      {"dow": 1, "hour": 10, "score": 0.82},
+      {"dow": 2, "hour": 11, "score": 0.79}
+    ],
+    "instagram": [
+      {"dow": 4, "hour": 18, "score": 0.76}
+    ]
+  }
+}

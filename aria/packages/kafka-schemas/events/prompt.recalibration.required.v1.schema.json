@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aria.schemas/events/prompt.recalibration.required.v1.schema.json",
+  "allOf": [
+    { "$ref": "./_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "event_type": { "const": "prompt.recalibration.required.v1" },
+        "payload": {
+          "type": "object",
+          "required": ["reason", "degradation_score", "window_start", "window_end", "triggered_at"],
+          "properties": {
+            "reason": { "type": "string" },
+            "degradation_score": { "type": "number" },
+            "window_start": { "type": "string", "format": "date-time" },
+            "window_end": { "type": "string", "format": "date-time" },
+            "triggered_at": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
