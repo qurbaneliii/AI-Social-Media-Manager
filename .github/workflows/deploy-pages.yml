@@ -31,8 +31,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        continue-on-error: true
         with:
-          enablement: true
+          enablement: false
 
       - name: Install dependencies
         working-directory: aria-frontend
