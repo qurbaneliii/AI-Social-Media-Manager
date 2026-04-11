@@ -110,8 +110,8 @@ class LLMRouter:
             state.opened_at = now
             logger.info("provider=%s breaker_state_change %s->%s", provider_name, old, state.state)
 
-    async def generate(self, tenant_id: str, prompt: str, max_tokens: int) -> str:
-        """Generate response via the first available provider in failover order."""
+    async def _generate_with_provider(self, tenant_id: str, prompt: str, max_tokens: int) -> tuple[str, str]:
+        """Generate response and return both content and provider name."""
         tenant_sem = await self._get_tenant_semaphore(tenant_id)
 
         async with self.global_semaphore:
@@ -136,7 +136,7 @@ class LLMRouter:
                         result = await provider.generate(prompt=prompt, max_tokens=max_tokens)
                         self._record_success(provider_name)
                         logger.info("tenant=%s provider=%s success", tenant_id, provider_name)
-                        return result
+                        return result, provider_name
                     except ProviderError as exc:
                         self._record_failure(provider_name, now)
                         logger.info(
@@ -154,6 +154,16 @@ class LLMRouter:
                         continue
 
                 raise last_error or ProviderError("router: all providers unavailable")
+
+    async def generate(self, tenant_id: str, prompt: str, max_tokens: int) -> str:
+        """Generate response via the first available provider in failover order."""
+        result, _provider_name = await self._generate_with_provider(tenant_id, prompt, max_tokens)
+        return result
+
+    async def generate_with_provider(self, tenant_id: str, prompt: str, max_tokens: int) -> dict[str, str]:
+        """Generate response and return provider metadata for UI transparency."""
+        result, provider_used = await self._generate_with_provider(tenant_id, prompt, max_tokens)
+        return {"content": result, "provider_used": provider_used}
 
     def get_status(self) -> dict[str, dict[str, Any]]:
         """Return operational status for each provider breaker."""

@@ -27,7 +27,7 @@ async def oauth_callback(
     request: Request,
     code: str = Query(...),
     state: str = Query(...),
-    platform: str = Query(...),
+    platform: str | None = Query(default=None),
 ) -> dict[str, str]:
     service: OAuthService = request.app.state.oauth_service
     try:

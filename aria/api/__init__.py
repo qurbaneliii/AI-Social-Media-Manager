@@ -2,6 +2,9 @@
 # purpose: API router package exports.
 # dependencies: api modules
 
+from api.analytics import router as analytics_router
+from api.companies import router as companies_router
+from api.llm_proxy import router as llm_proxy_router
 from api.media import router as media_router
 from api.oauth import router as oauth_router
 from api.onboarding import router as onboarding_router
@@ -13,6 +16,9 @@ __all__ = [
     "posts_router",
     "schedules_router",
     "webhooks_router",
+    "companies_router",
+    "analytics_router",
+    "llm_proxy_router",
     "media_router",
     "oauth_router",
 ]

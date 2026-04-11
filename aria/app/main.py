@@ -17,7 +17,17 @@ from celery.result import AsyncResult
 from fastapi import FastAPI, HTTPException
 from temporalio.client import Client as TemporalClient
 
-from api import media_router, oauth_router, onboarding_router, posts_router, schedules_router, webhooks_router
+from api import (
+    analytics_router,
+    companies_router,
+    llm_proxy_router,
+    media_router,
+    oauth_router,
+    onboarding_router,
+    posts_router,
+    schedules_router,
+    webhooks_router,
+)
 from app.cache import SemanticCache, build_cache_from_env
 from app.models import (
     GenerateRequest,
@@ -103,6 +113,9 @@ app.include_router(onboarding_router, prefix="/v1/onboarding", tags=["onboarding
 app.include_router(posts_router, prefix="/v1/posts", tags=["posts"])
 app.include_router(schedules_router, prefix="/v1/schedules", tags=["schedules"])
 app.include_router(webhooks_router, prefix="/v1/webhooks", tags=["webhooks"])
+app.include_router(companies_router, prefix="/v1/companies", tags=["companies"])
+app.include_router(analytics_router, prefix="/v1/analytics", tags=["analytics"])
+app.include_router(llm_proxy_router, prefix="/v1/llm/proxy", tags=["llm-proxy"])
 app.include_router(media_router, prefix="/v1/media", tags=["media"])
 app.include_router(oauth_router, prefix="/v1/oauth", tags=["oauth"])
 

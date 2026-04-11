@@ -64,17 +64,18 @@ class OAuthService:
         )
         return f"{cfg['auth_url']}?{query}"
 
-    async def handle_callback(self, code: str, state: str, platform: str) -> dict[str, str]:
+    async def handle_callback(self, code: str, state: str, platform: str | None = None) -> dict[str, str]:
         state_key = f"oauth:state:{state}"
         state_val = await self.redis.get(state_key)
         if state_val is None:
             raise ValueError("Invalid or expired OAuth state")
 
         company_id, state_platform = state_val.split(":", 1)
-        if state_platform.lower() != platform.lower():
+        selected_platform = (platform or state_platform).lower()
+        if state_platform.lower() != selected_platform:
             raise ValueError("OAuth state platform mismatch")
 
-        cfg = self._cfg(platform)
+        cfg = self._cfg(selected_platform)
         redirect_uri = f"{self.redirect_base}/v1/oauth/callback"
         payload = {
             "grant_type": "authorization_code",
@@ -120,14 +121,14 @@ class OAuthService:
         RETURNING credential_id, platform, status
         """
 
-        account_ref = str(token_data.get("account_id") or token_data.get("user_id") or f"acct-{platform}-{company_id}")
+        account_ref = str(token_data.get("account_id") or token_data.get("user_id") or f"acct-{selected_platform}-{company_id}")
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await set_tenant(conn, company_id)
                 row = await conn.fetchrow(
                     query,
                     company_id,
-                    platform,
+                    selected_platform,
                     account_ref,
                     enc_access,
                     enc_refresh,
