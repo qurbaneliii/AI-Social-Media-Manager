@@ -1,0 +1,12 @@
+# filename: prometheus.yml
+# purpose: Minimal Prometheus scrape configuration for ARIA local stack.
+# dependencies: docker-compose.yml, prometheus service
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "aria-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

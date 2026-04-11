@@ -1,0 +1,150 @@
+# filename: docker-compose.yml
+# purpose: Local-first infrastructure stack for API, worker, data stores, streaming, workflow, and observability.
+# dependencies: Docker Compose, Dockerfile, .env, prometheus.yml
+
+version: "3.9"
+
+networks:
+  aria-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - minio
+    networks:
+      - aria-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A app.tasks worker --loglevel=info --concurrency=4
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - minio
+    networks:
+      - aria-net
+
+  temporal-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m temporal.worker
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - temporal
+      - redis
+    networks:
+      - aria-net
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aria}
+      POSTGRES_DB: ${POSTGRES_DB:-aria}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - aria-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - aria-net
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - "512M"
+      - --reserve-memory
+      - "0M"
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+      - --check=false
+    ports:
+      - "9092:9092"
+    networks:
+      - aria-net
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    depends_on:
+      - postgres
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-aria}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-aria}
+      POSTGRES_SEEDS: postgres
+    ports:
+      - "7233:7233"
+    networks:
+      - aria-net
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - aria-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - aria-net
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "3000:3000"
+    networks:
+      - aria-net

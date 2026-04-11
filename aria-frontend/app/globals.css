@@ -1,0 +1,30 @@
+/* filename: app/globals.css
+purpose: Global Tailwind styles and base design tokens.
+dependencies: tailwindcss
+*/
+
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f8fb;
+  --fg: #0f172a;
+  --card: #ffffff;
+  --muted: #64748b;
+  --border: #dbe4ee;
+  --brand: #0d9488;
+  --brand-strong: #0f766e;
+  --danger: #dc2626;
+  --warn: #d97706;
+}
+
+body {
+  background: radial-gradient(circle at 10% 0%, #ecfeff, transparent 35%),
+    radial-gradient(circle at 90% 10%, #e2e8f0, transparent 25%),
+    var(--bg);
+  color: var(--fg);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}

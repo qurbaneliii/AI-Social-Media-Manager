@@ -1,0 +1,27 @@
+# filename: requirements.txt
+# purpose: Python runtime dependencies for API, worker, providers, cache, vision, and observability.
+# dependencies: pip
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.8.2
+httpx==0.27.2
+celery==5.4.0
+redis==5.0.7
+asyncpg==0.29.0
+boto3==1.35.24
+cryptography==43.0.1
+python-multipart==0.0.9
+spacy==3.7.6
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+pytesseract==0.3.10
+open-clip-torch==2.26.1
+torch==2.3.1
+Pillow==10.4.0
+opentelemetry-api==1.26.0
+opentelemetry-sdk==1.26.0
+opentelemetry-exporter-otlp==1.26.0
+prometheus-client==0.20.0
+temporalio==1.7.1
+alembic==1.13.2
