@@ -15,6 +15,7 @@ import boto3
 import redis.asyncio as redis
 from celery.result import AsyncResult
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from temporalio.client import Client as TemporalClient
 
 from api import (
@@ -109,6 +110,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ARIA API and Tooling Plan", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(onboarding_router, prefix="/v1/onboarding", tags=["onboarding"])
 app.include_router(posts_router, prefix="/v1/posts", tags=["posts"])
 app.include_router(schedules_router, prefix="/v1/schedules", tags=["schedules"])
