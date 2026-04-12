@@ -15,6 +15,7 @@
     "@aws-sdk/client-kms": "^3.670.0",
     "@aws-sdk/client-s3": "^3.670.0",
     "@aws-sdk/s3-request-presigner": "^3.670.0",
+    "@fastify/cors": "^9.0.1",
     "@nestjs/common": "^10.4.3",
     "@nestjs/core": "^10.4.3",
     "@nestjs/platform-fastify": "^10.4.3",
