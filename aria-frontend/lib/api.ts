@@ -37,7 +37,33 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const API_BASE_RAW = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_BASE = API_BASE_RAW.replace(/\/$/, "");
+
+const resolveApiBase = (): string => {
+  if (API_BASE) {
+    return API_BASE;
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+  }
+
+  throw new ApiError({
+    code: "API_BASE_URL_MISSING",
+    message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
+    retryable: false,
+    details: {
+      required_env: "NEXT_PUBLIC_API_BASE_URL",
+      alternate_env: "NEXT_PUBLIC_API_URL"
+    }
+  });
+};
+
+const toApiUrl = (url: string): string => `${resolveApiBase()}${url}`;
 
 const getTokenFromSession = (): string | null => {
   if (typeof window === "undefined") {
@@ -71,7 +97,7 @@ const parseError = async (response: Response): Promise<ApiError> => {
 };
 
 const requestJson = async <T>(url: string, init: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_BASE}${url}`, {
+  const response = await fetch(toApiUrl(url), {
     ...init,
     headers: {
       ...getJsonHeaders(),
@@ -116,7 +142,7 @@ export const importPostArchive = async (company_id: string, file: File): Promise
   const token = getTokenFromSession();
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`${API_BASE}/v1/onboarding/import?company_id=${encodeURIComponent(company_id)}`, {
+  const response = await fetch(toApiUrl(`/v1/onboarding/import?company_id=${encodeURIComponent(company_id)}`), {
     method: "POST",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -230,7 +256,7 @@ export const approveSchedule = async (schedule_id: string): Promise<void> => {
 
 export const getOAuthConnectUrl = (platform: string, company_id: string): string => {
   const params = new URLSearchParams({ platform, company_id });
-  return `${API_BASE}/v1/oauth/connect?${params.toString()}`;
+  return toApiUrl(`/v1/oauth/connect?${params.toString()}`);
 };
 
 export const getAuditLog = async (company_id: string, limit: number, offset: number): Promise<any[]> => {
