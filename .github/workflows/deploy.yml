@@ -24,22 +24,26 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: aria-frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: aria-frontend
         run: npm ci
 
       - name: Build
+        working-directory: aria-frontend
         run: npm run build
         env:
           NEXT_PUBLIC_IS_STATIC: true
           NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager
 
       - name: Add .nojekyll
+        working-directory: aria-frontend
         run: touch out/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./aria-frontend/out
 
   deploy:
     environment:
