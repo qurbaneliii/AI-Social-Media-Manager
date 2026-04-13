@@ -4,9 +4,15 @@ import { verifyAuthToken } from "@/lib/auth";
 import { AUTH_COOKIE_NAME } from "@/lib/auth-constants";
 import { prisma } from "@/lib/prisma";
 
+const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  if (isStatic) {
+    return NextResponse.json({ error: "Authentication requires a live server." }, { status: 401 });
+  }
+
   try {
     const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
     if (!token) {

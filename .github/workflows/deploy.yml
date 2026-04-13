@@ -44,6 +44,13 @@ jobs:
           export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-https://example.com}"
           export OPENAI_API_KEY="${OPENAI_API_KEY:-dummy-openai-key}"
           export JWT_SECRET="${JWT_SECRET:-dummy-jwt-secret}"
+
+          # GitHub Pages static export cannot include force-dynamic route handlers.
+          sed -i 's/export const dynamic = "force-dynamic";/export const dynamic = "force-static";/g' app/api/auth/login/route.ts
+          sed -i 's/export const dynamic = "force-dynamic";/export const dynamic = "force-static";/g' app/api/auth/register/route.ts
+          sed -i 's/export const dynamic = "force-dynamic";/export const dynamic = "force-static";/g' app/api/auth/me/route.ts
+          sed -i 's/export const dynamic = "force-dynamic";/export const dynamic = "force-static";/g' app/api/auth/logout/route.ts
+
           npm run build
 
       - name: Upload Pages artifact
