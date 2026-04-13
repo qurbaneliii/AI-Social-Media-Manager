@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-static";
+
 const roleSchema = z.enum(["agency_admin", "brand_manager", "content_creator", "analyst"]);
 
 const registerSchema = z.object({

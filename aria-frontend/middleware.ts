@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth-constants";
 
+// NOTE: middleware is disabled in static mode (Next.js output: export).
+// Keep this for live server deployments.
+
 const getTokenFromRequest = (request: NextRequest): string | null => {
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {

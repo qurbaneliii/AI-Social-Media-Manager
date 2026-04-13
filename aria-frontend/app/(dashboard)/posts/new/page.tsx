@@ -17,6 +17,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePresignUpload } from "@/hooks/usePresignUpload";
 import { getClientSession } from "@/lib/client-session";
+import { IS_STATIC } from "@/lib/isStatic";
+import { mockCompanyProfile } from "@/lib/mockData";
 import { GeneratePostSchema } from "@/lib/zod-schemas";
 import {
   analyzeContent,
@@ -90,6 +92,23 @@ export default function NewPostPage() {
   const [topics, setTopics] = useState<string[]>([]);
   const [batchResults, setBatchResults] = useState<AIGenerateBatchResult[]>([]);
 
+  const resolvedCompanyProfile = profile
+    ? {
+        platforms: platforms.filter((platform) => profile.platform_presence[platform]).map(toAIPlatform),
+        postingFrequency: profile.posting_frequency_goal,
+        ctaTypes: profile.primary_cta_types,
+        brandColors: profile.brand_color_hex_codes,
+        approvedVocabulary: profile.approved_vocabulary_list,
+        bannedVocabulary: profile.banned_vocabulary_list,
+        companyName: profile.company_name,
+        industry: profile.industry_vertical,
+        targetMarket: profile.target_market,
+        tone: profile.tone_of_voice_descriptors
+      }
+    : IS_STATIC
+      ? mockCompanyProfile
+      : null;
+
   const form = useForm<GeneratePostForm>({
     resolver: zodResolver(GeneratePostSchema),
     defaultValues: {
@@ -106,18 +125,21 @@ export default function NewPostPage() {
   });
 
   useEffect(() => {
-    if (!profile || didPrefillFromProfile) {
+    if ((!profile && !IS_STATIC) || didPrefillFromProfile) {
       return;
     }
 
-    const activePlatforms = platforms.filter((platform) => profile.platform_presence[platform]);
+    const activePlatforms = profile
+      ? platforms.filter((platform) => profile.platform_presence[platform])
+      : mockCompanyProfile.platforms.map((platform) => (platform === "twitter" ? "x" : platform as Platform));
     if (activePlatforms.length > 0) {
       form.setValue("target_platforms", activePlatforms, { shouldValidate: true });
       setAiPlatform(toAIPlatform(activePlatforms[0]));
     }
 
-    if ((profile.approved_vocabulary_list ?? []).length > 0) {
-      form.setValue("manual_keywords", profile.approved_vocabulary_list.slice(0, 8), { shouldValidate: true });
+    const approved = profile?.approved_vocabulary_list ?? [...mockCompanyProfile.approvedVocabulary];
+    if (approved.length > 0) {
+      form.setValue("manual_keywords", approved.slice(0, 8), { shouldValidate: true });
     }
 
     if (user?.role) {
@@ -139,28 +161,29 @@ export default function NewPostPage() {
   const aiResult = improvedContent || generatedContent;
 
   const buildGeneratePayload = (platformOverride?: AIPlatform) => {
-    if (!profile) {
+    if (!resolvedCompanyProfile) {
       return null;
     }
 
     const resolvedPlatform = platformOverride ?? aiPlatform;
     const frontendPlatform = toPlatform(resolvedPlatform);
-    const topic = form.getValues("core_message").trim() || `${profile.company_name} update`;
+    const topic =
+      form.getValues("core_message").trim() || `${profile?.company_name ?? "Preview Company"} update`;
 
     return {
       platform: resolvedPlatform,
       topic,
-      tone: profile.tone_of_voice_descriptors.join(", ") || "professional",
-      ctaType: profile.primary_cta_types[0] ?? "learn_more",
-      brandColors: profile.brand_color_hex_codes,
-      approvedVocabulary: profile.approved_vocabulary_list,
-      bannedVocabulary: profile.banned_vocabulary_list,
-      postingFrequency: profile.posting_frequency_goal[frontendPlatform],
+      tone: profile ? profile.tone_of_voice_descriptors.join(", ") || "professional" : "professional",
+      ctaType: (profile?.primary_cta_types[0] ?? mockCompanyProfile.ctaTypes[0]) as any,
+      brandColors: profile?.brand_color_hex_codes ?? [...mockCompanyProfile.brandColors],
+      approvedVocabulary: profile?.approved_vocabulary_list ?? [...mockCompanyProfile.approvedVocabulary],
+      bannedVocabulary: profile?.banned_vocabulary_list ?? [...mockCompanyProfile.bannedVocabulary],
+      postingFrequency: profile
+        ? profile.posting_frequency_goal[frontendPlatform]
+        : mockCompanyProfile.postingFrequency[frontendPlatform === "x" ? "twitter" : "linkedin"],
       companyProfile: {
         companyId,
-        companyName: profile.company_name,
-        industry: profile.industry_vertical,
-        targetMarket: profile.target_market,
+        ...resolvedCompanyProfile,
         selectedPlatforms: selectedTargets,
         userRole: user?.role ?? null
       }
@@ -191,7 +214,7 @@ export default function NewPostPage() {
   };
 
   const handleBatchGenerate = async () => {
-    if (!profile) {
+    if (!resolvedCompanyProfile) {
       setAiError("Complete your company profile for better AI results");
       return;
     }
@@ -282,7 +305,7 @@ export default function NewPostPage() {
   };
 
   const handleSuggestTopics = async () => {
-    if (!profile) {
+    if (!resolvedCompanyProfile) {
       setAiError("Complete your company profile for better AI results");
       return;
     }
@@ -294,14 +317,14 @@ export default function NewPostPage() {
     setIsSuggestingTopics(true);
     try {
       const response = await suggestTopics({
-        industry: profile.industry_vertical,
+        industry: profile?.industry_vertical ?? "marketing",
         platforms: platformsForTopicRequest,
         companyProfile: {
           companyId,
-          companyName: profile.company_name,
+          companyName: profile?.company_name ?? "Preview Company",
           userRole: user?.role ?? null,
-          targetMarket: profile.target_market,
-          tone: profile.tone_of_voice_descriptors
+          targetMarket: profile?.target_market ?? {},
+          tone: profile?.tone_of_voice_descriptors ?? ["professional"]
         }
       });
       setTopics(response.topics);
@@ -402,12 +425,16 @@ export default function NewPostPage() {
             </p>
           </header>
 
-          {!profile ? (
+          {!resolvedCompanyProfile ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               Complete your company profile for better AI results. {" "}
               <Link href="/onboarding/company-profile" className="font-medium underline">
                 Go to company profile settings
               </Link>
+            </p>
+          ) : IS_STATIC ? (
+            <p className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              Preview mode: AI actions are using mock/static responses.
             </p>
           ) : null}
 

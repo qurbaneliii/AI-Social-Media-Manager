@@ -8,6 +8,8 @@ import {
 } from "@/app/api/ai/_lib";
 import { openai } from "@/lib/openai";
 
+export const dynamic = "force-static";
+
 const analyzeContentSchema = z.object({
   content: z.string().trim().min(1).max(6000),
   platform: aiPlatformSchema

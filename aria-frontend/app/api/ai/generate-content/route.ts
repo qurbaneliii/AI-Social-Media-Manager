@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { generateContentSchema, generatePlatformContent, toOpenAIErrorResponse } from "@/app/api/ai/_lib";
 
+export const dynamic = "force-static";
+
 export async function POST(request: Request) {
   try {
     const payload = generateContentSchema.parse(await request.json());

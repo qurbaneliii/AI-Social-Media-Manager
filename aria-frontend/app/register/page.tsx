@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
+import { IS_STATIC } from "@/lib/isStatic";
+import { AUTH_PREVIEW_MESSAGE } from "@/lib/mockData";
 import type { UserRole } from "@/types";
 
 const roleOptions: UserRole[] = ["agency_admin", "brand_manager", "content_creator", "analyst"];
@@ -73,7 +75,7 @@ export default function RegisterPage() {
       const message = submitError instanceof Error ? submitError.message : "Failed to create account.";
       setErrors((prev) => ({
         ...prev,
-        general: message.includes("exists") ? "Email already exists." : message
+        general: IS_STATIC ? AUTH_PREVIEW_MESSAGE : message.includes("exists") ? "Email already exists." : message
       }));
     } finally {
       setIsSubmitting(false);
@@ -155,6 +157,10 @@ export default function RegisterPage() {
           </label>
 
           {errors.general ? <p className="text-xs text-red-600">{errors.general}</p> : null}
+
+          {IS_STATIC ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{AUTH_PREVIEW_MESSAGE}</p>
+          ) : null}
 
           <button className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Create account"}

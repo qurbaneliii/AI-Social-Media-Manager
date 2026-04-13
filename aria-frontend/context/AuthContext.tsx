@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { AUTH_PREVIEW_MESSAGE, PREVIEW_USER_STORAGE_KEY, mockUser } from "@/lib/mockData";
+import { IS_STATIC } from "@/lib/isStatic";
 import type { UserRole } from "@/types";
 
 interface AuthUser {
@@ -30,6 +32,7 @@ interface AuthContextValue {
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  continueAsPreviewUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -47,7 +50,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadPreviewUser = useCallback((): AuthUser | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const raw = localStorage.getItem(PREVIEW_USER_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as AuthUser;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const refreshUser = useCallback(async () => {
+    if (IS_STATIC) {
+      setUser(loadPreviewUser());
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/auth/me", {
         method: "GET",
@@ -64,13 +90,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadPreviewUser]);
 
   useEffect(() => {
     void refreshUser();
   }, [refreshUser]);
 
   const login = useCallback(async (input: LoginInput) => {
+    if (IS_STATIC) {
+      throw new Error(AUTH_PREVIEW_MESSAGE);
+    }
+
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
@@ -90,6 +120,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
+    if (IS_STATIC) {
+      throw new Error(AUTH_PREVIEW_MESSAGE);
+    }
+
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
@@ -104,11 +138,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    if (IS_STATIC) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(PREVIEW_USER_STORAGE_KEY);
+      }
+      setUser(null);
+      return;
+    }
+
     await fetch("/api/auth/logout", {
       method: "POST",
       credentials: "include"
     });
     setUser(null);
+  }, []);
+
+  const continueAsPreviewUser = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.setItem(PREVIEW_USER_STORAGE_KEY, JSON.stringify(mockUser));
+    localStorage.setItem("aria_company_id", "preview-company");
+    localStorage.setItem("aria_role", mockUser.role);
+    setUser(mockUser);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -119,9 +172,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login,
       register,
       logout,
-      refreshUser
+      refreshUser,
+      continueAsPreviewUser
     }),
-    [isLoading, login, logout, refreshUser, register, user]
+    [continueAsPreviewUser, isLoading, login, logout, refreshUser, register, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

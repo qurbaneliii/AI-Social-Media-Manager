@@ -1,3 +1,9 @@
+import { IS_STATIC } from "@/lib/isStatic";
+import {
+  PREVIEW_MODE_MESSAGE,
+  mockGeneratedContent
+} from "@/lib/mockData";
+
 export type AIPlatform = "linkedin" | "twitter" | "instagram" | "facebook" | "tiktok" | "pinterest" | "x";
 
 export type AICtaType = "learn_more" | "book_demo" | "buy_now" | "download" | "comment" | "share";
@@ -143,6 +149,21 @@ const postJson = async <TResponse>(path: string, body: unknown): Promise<TRespon
 export const generateContent = async (
   params: AIGenerateContentRequest
 ): Promise<AIGenerateContentResponse> => {
+  if (IS_STATIC) {
+    const platform = normalizePlatform(params.platform);
+    const content =
+      platform === "linkedin"
+        ? mockGeneratedContent.linkedin
+        : platform === "twitter"
+          ? mockGeneratedContent.twitter
+          : `Preview mode content for ${platform}. ${PREVIEW_MODE_MESSAGE}`;
+
+    return {
+      content,
+      platform
+    };
+  }
+
   return postJson<AIGenerateContentResponse>("/ai/generate-content", {
     ...params,
     platform: normalizePlatform(params.platform)
@@ -152,6 +173,26 @@ export const generateContent = async (
 export const generateBatch = async (
   params: AIGenerateContentRequest[]
 ): Promise<AIGenerateBatchResponse> => {
+  if (IS_STATIC) {
+    return {
+      results: params.map((item) => {
+        const platform = normalizePlatform(item.platform);
+        const content =
+          platform === "linkedin"
+            ? mockGeneratedContent.linkedin
+            : platform === "twitter"
+              ? mockGeneratedContent.twitter
+              : `Preview mode content for ${platform}. ${PREVIEW_MODE_MESSAGE}`;
+
+        return {
+          success: true,
+          platform,
+          content
+        };
+      })
+    };
+  }
+
   return postJson<AIGenerateBatchResponse>(
     "/ai/generate-batch",
     params.map((item) => ({
@@ -164,12 +205,33 @@ export const generateBatch = async (
 export const improveContent = async (
   params: AIImproveContentRequest
 ): Promise<AIImproveContentResponse> => {
+  if (IS_STATIC) {
+    return {
+      improved: `${params.content}\n\n[Preview improvement] ${PREVIEW_MODE_MESSAGE}`
+    };
+  }
+
   return postJson<AIImproveContentResponse>("/ai/improve-content", params);
 };
 
 export const analyzeContent = async (
   params: AIAnalyzeContentRequest
 ): Promise<AIAnalyzeContentResponse> => {
+  if (IS_STATIC) {
+    return {
+      scores: {
+        engagement: 72,
+        clarity: 78,
+        cta_strength: 69
+      },
+      suggestions: [
+        "Lead with a stronger hook in the first sentence.",
+        "Tighten wording to improve readability.",
+        "End with a clearer CTA for better conversion."
+      ]
+    };
+  }
+
   return postJson<AIAnalyzeContentResponse>("/ai/analyze-content", {
     ...params,
     platform: normalizePlatform(params.platform)
@@ -179,6 +241,12 @@ export const analyzeContent = async (
 export const suggestHashtags = async (
   params: AISuggestHashtagsRequest
 ): Promise<AISuggestHashtagsResponse> => {
+  if (IS_STATIC) {
+    return {
+      hashtags: ["AriaConsole", "SocialMedia", "ContentStrategy", "PreviewMode"]
+    };
+  }
+
   return postJson<AISuggestHashtagsResponse>("/ai/suggest-hashtags", {
     ...params,
     platform: normalizePlatform(params.platform)
@@ -188,6 +256,18 @@ export const suggestHashtags = async (
 export const suggestTopics = async (
   params: AISuggestTopicsRequest
 ): Promise<AISuggestTopicsResponse> => {
+  if (IS_STATIC) {
+    return {
+      topics: [
+        `Top ${params.industry} trends this quarter`,
+        "Behind the scenes: our workflow for campaign quality",
+        "5 mistakes brands make in social messaging",
+        "How to adapt one idea across multiple platforms",
+        "What measurable CTA performance looks like"
+      ]
+    };
+  }
+
   return postJson<AISuggestTopicsResponse>("/ai/suggest-topics", {
     ...params,
     platforms: params.platforms.map(normalizePlatform)

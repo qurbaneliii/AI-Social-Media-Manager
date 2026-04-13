@@ -4,16 +4,17 @@
 
 import type { NextConfig } from "next";
 
-const repoName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
-const githubPagesBasePath = repoName ? `/${repoName}` : "";
+const repoName = "AI-Social-Media-Manager";
 
 const nextConfig: NextConfig = {
+  output: "export",
   reactStrictMode: true,
+  basePath: `/${repoName}`,
+  assetPrefix: `/${repoName}/`,
   images: {
     unoptimized: true
   },
-  basePath: githubPagesBasePath,
-  assetPrefix: githubPagesBasePath || undefined
+  trailingSlash: true
 };
 
 export default nextConfig;

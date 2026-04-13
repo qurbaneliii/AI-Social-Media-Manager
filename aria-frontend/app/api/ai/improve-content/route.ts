@@ -4,6 +4,8 @@ import { z } from "zod";
 import { toOpenAIErrorResponse } from "@/app/api/ai/_lib";
 import { openai } from "@/lib/openai";
 
+export const dynamic = "force-static";
+
 const improveContentSchema = z.object({
   content: z.string().trim().min(1).max(6000),
   instruction: z.string().trim().min(3).max(1000)

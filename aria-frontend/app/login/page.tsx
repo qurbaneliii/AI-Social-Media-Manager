@@ -1,23 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
+import { IS_STATIC } from "@/lib/isStatic";
+import { AUTH_PREVIEW_MESSAGE } from "@/lib/mockData";
 import { getRoleRedirectPath } from "@/lib/role-routing";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { continueAsPreviewUser: continueAsPreviewUserSession, login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const registered = searchParams.get("registered") === "1";
+  const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setRegistered(params.get("registered") === "1");
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,10 +38,15 @@ export default function LoginPage() {
       const user = await login({ email: email.trim(), password });
       router.push(getRoleRedirectPath(user.role));
     } catch {
-      setError("Invalid email or password.");
+      setError(IS_STATIC ? AUTH_PREVIEW_MESSAGE : "Invalid email or password.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleContinueAsPreviewUser = () => {
+    continueAsPreviewUserSession();
+    router.push("/dashboard");
   };
 
   return (
@@ -72,8 +87,22 @@ export default function LoginPage() {
 
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
+          {IS_STATIC ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {AUTH_PREVIEW_MESSAGE}
+            </p>
+          ) : null}
+
           <button className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+
+          <button
+            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+            type="button"
+            onClick={handleContinueAsPreviewUser}
+          >
+            Continue as Preview User
           </button>
 
           <p className="text-sm text-slate-600">

@@ -7,8 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "export": "next build",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postbuild": "touch out/.nojekyll"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
