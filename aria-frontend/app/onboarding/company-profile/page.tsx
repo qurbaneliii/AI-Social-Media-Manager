@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { ONBOARDING_PASS_THRESHOLD, POSTING_FREQUENCY_LIMITS } from "@/config/constants";
 import { submitCompanyProfile } from "@/lib/api";
 import { setClientCompanyId } from "@/lib/client-session";
+import { IS_STATIC } from "@/lib/isStatic";
+import { mockCompanyProfile } from "@/lib/mockData";
 import { navigateTo } from "@/lib/navigate";
 import { CompanyProfileSchema } from "@/lib/zod-schemas";
 import { useCompanyStore } from "@/stores/useCompanyStore";
@@ -28,18 +30,18 @@ export default function CompanyProfilePage() {
   const form = useForm<CompanyProfileForm>({
     resolver: zodResolver(CompanyProfileSchema),
     defaultValues: {
-      company_name: "",
-      industry_vertical: "",
+      company_name: mockCompanyProfile.name,
+      industry_vertical: mockCompanyProfile.industry,
       target_market: {
-        regions: ["US"],
-        segments: ["B2B"],
-        persona_summary: ""
+        regions: [...mockCompanyProfile.targetMarket.regions],
+        segments: [...mockCompanyProfile.targetMarket.segments],
+        persona_summary: mockCompanyProfile.targetMarket.personaSummary
       },
-      brand_positioning_statement: "",
-      tone_of_voice_descriptors: ["confident", "clear", "modern"],
+      brand_positioning_statement: "AI-powered social workflow automation for modern teams.",
+      tone_of_voice_descriptors: [...mockCompanyProfile.tone],
       competitor_list: [],
       platform_presence: {
-        instagram: false,
+        instagram: true,
         linkedin: true,
         facebook: false,
         x: true,
@@ -47,17 +49,17 @@ export default function CompanyProfilePage() {
         pinterest: false
       },
       posting_frequency_goal: {
-        instagram: 3,
-        linkedin: 2,
+        instagram: mockCompanyProfile.postingFrequency.instagram,
+        linkedin: mockCompanyProfile.postingFrequency.linkedin,
         facebook: 2,
-        x: 5,
+        x: mockCompanyProfile.postingFrequency.twitter,
         tiktok: 2,
         pinterest: 2
       },
-      primary_cta_types: ["learn_more"],
-      brand_color_hex_codes: ["#0F766E"],
-      approved_vocabulary_list: [],
-      banned_vocabulary_list: [],
+      primary_cta_types: [...mockCompanyProfile.ctaTypes],
+      brand_color_hex_codes: [...mockCompanyProfile.brandColors],
+      approved_vocabulary_list: [...mockCompanyProfile.approvedVocabulary],
+      banned_vocabulary_list: [...mockCompanyProfile.bannedVocabulary],
       logo_file: null,
       sample_post_images: []
     }
@@ -79,6 +81,20 @@ export default function CompanyProfilePage() {
 
   const values = form.watch();
 
+  const handleSubmit = async (payload: CompanyProfileForm) => {
+    if (IS_STATIC) {
+      const companyId = "preview-company";
+      setProfile(payload);
+      setCompanyId(companyId);
+      setClientCompanyId(companyId);
+      toast.success("Profile saved (preview mode)");
+      navigateTo("/onboarding/brand-assets");
+      return;
+    }
+
+    mutation.mutate(payload);
+  };
+
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[300px_1fr]">
       <aside className="space-y-4">
@@ -88,7 +104,7 @@ export default function CompanyProfilePage() {
         </div>
       </aside>
 
-      <form onSubmit={form.handleSubmit((payload) => mutation.mutate(payload))} className="space-y-6 rounded-2xl border bg-white p-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 rounded-2xl border bg-white p-6">
         <header>
           <h1 className="text-2xl font-semibold text-slate-900">Company profile</h1>
           <p className="text-sm text-slate-600">Define strategic brand context for model grounding.</p>
