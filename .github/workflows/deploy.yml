@@ -59,9 +59,14 @@ jobs:
   deploy_backend:
     runs-on: ubuntu-latest
     needs: deploy_frontend
-    if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
     steps:
-      - name: Trigger Render backend deploy
+      - name: Trigger Render backend deploy (if configured)
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set; skipping backend deploy trigger."
+            exit 0
+          fi
+
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
