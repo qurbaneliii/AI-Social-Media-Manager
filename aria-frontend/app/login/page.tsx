@@ -34,7 +34,10 @@ export default function LoginPage() {
     setError(null);
     setShowPreviewModeNotice(false);
 
-    if (email === "preview@ariaconsole.com" && password === "Preview123!") {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password.trim();
+
+    if (normalizedEmail === "preview@ariaconsole.com" && normalizedPassword === "Preview123!") {
       const previewUser = {
         id: "preview-user-001",
         name: "Preview User",
@@ -44,6 +47,10 @@ export default function LoginPage() {
       localStorage.setItem("user", JSON.stringify(previewUser));
       localStorage.setItem("token", "preview-token-static-mode");
       localStorage.setItem("isPreview", "true");
+      localStorage.setItem("aria_token", "preview-token-static-mode");
+      localStorage.setItem("aria_role", "brand_manager");
+      localStorage.setItem("aria_company_id", "preview-company");
+      sessionStorage.setItem("aria_token", "preview-token-static-mode");
 
       window.location.href = window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH || "") + "/dashboard";
       return;
