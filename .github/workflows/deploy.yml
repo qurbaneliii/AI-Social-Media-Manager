@@ -36,6 +36,7 @@ jobs:
         env:
           NEXT_PUBLIC_IS_STATIC: true
           NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager
+          OPENAI_API_KEY: dummy
 
       - name: Add .nojekyll
         working-directory: aria-frontend
