@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 const roleSchema = z.enum(["agency_admin", "brand_manager", "content_creator", "analyst"]);
 

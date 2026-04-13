@@ -4,12 +4,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { getBasePath } from "@/lib/navigate";
 
 export default function OAuthCallbackPage() {
   useEffect(() => {
     const query = window.location.search.replace(/^\?/, "");
     const next = query ? `/onboarding/platforms?${query}` : "/onboarding/platforms";
-    window.location.replace(next);
+    window.location.replace(`${getBasePath()}${next}`);
   }, []);
 
   return (

@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { PREVIEW_USER_STORAGE_KEY, mockUser } from "@/lib/mockData";
-import { IS_STATIC } from "@/lib/isStatic";
+import { mockUser } from "@/lib/mockData";
+import { getBasePath } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
 interface AuthUser {
@@ -30,7 +30,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (input: LoginInput) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   refreshUser: () => Promise<void>;
   continueAsPreviewUser: () => void;
 }
@@ -50,51 +50,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadPreviewUser = useCallback((): AuthUser | null => {
+  const readUserFromStorage = useCallback((): AuthUser | null => {
     if (typeof window === "undefined") {
       return null;
     }
 
-    const raw = localStorage.getItem(PREVIEW_USER_STORAGE_KEY);
-    if (!raw) {
+    const stored = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+    if (!stored || !token) {
       return null;
     }
 
     try {
-      return JSON.parse(raw) as AuthUser;
+      return JSON.parse(stored) as AuthUser;
     } catch {
+      localStorage.clear();
       return null;
     }
   }, []);
 
   const refreshUser = useCallback(async () => {
-    if (IS_STATIC) {
-      setUser(loadPreviewUser());
-      setIsLoading(false);
+    setUser(readUserFromStorage());
+    setIsLoading(false);
+  }, [readUserFromStorage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
       return;
     }
 
     try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "include"
-      });
-
-      if (!response.ok) {
-        setUser(null);
-        return;
+      const stored = localStorage.getItem("user");
+      const token = localStorage.getItem("token");
+      if (stored && token) {
+        setUser(JSON.parse(stored) as AuthUser);
       }
-
-      const payload = (await response.json()) as { user: AuthUser };
-      setUser(payload.user);
+    } catch {
+      localStorage.clear();
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
-  }, [loadPreviewUser]);
-
-  useEffect(() => {
-    void refreshUser();
-  }, [refreshUser]);
+  }, []);
 
   const login = useCallback(async (input: LoginInput) => {
     const response = await fetch("/api/auth/login", {
@@ -111,6 +108,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const payload = (await response.json()) as { user: AuthUser; token: string };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("user", JSON.stringify(payload.user));
+      localStorage.setItem("token", payload.token);
+    }
     setUser(payload.user);
     return payload.user;
   }, []);
@@ -129,19 +130,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    if (IS_STATIC) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(PREVIEW_USER_STORAGE_KEY);
-      }
-      setUser(null);
-      return;
+  const logout = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("isPreview");
+      window.location.href = `${getBasePath()}/login`;
     }
-
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include"
-    });
     setUser(null);
   }, []);
 
@@ -150,7 +145,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    localStorage.setItem(PREVIEW_USER_STORAGE_KEY, JSON.stringify(mockUser));
+    localStorage.setItem("user", JSON.stringify(mockUser));
+    localStorage.setItem("token", "preview-token-static-mode");
+    localStorage.setItem("isPreview", "true");
     localStorage.setItem("aria_company_id", "preview-company");
     localStorage.setItem("aria_role", mockUser.role);
     setUser(mockUser);

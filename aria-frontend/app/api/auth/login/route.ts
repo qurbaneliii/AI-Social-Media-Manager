@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 const loginSchema = z.object({
   email: z.string().trim().email(),

@@ -1,19 +1,42 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { useAuth } from "@/context/AuthContext";
+import { getBasePath } from "@/lib/navigate";
 
 export const useRequireAuth = () => {
-  const router = useRouter();
   const auth = useAuth();
 
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
-      router.replace("/login");
+    if (typeof window === "undefined") {
+      return;
     }
-  }, [auth.isAuthenticated, auth.isLoading, router]);
+
+    const user = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+    if (!user || !token) {
+      window.location.href = `${getBasePath()}/login`;
+      return;
+    }
+
+    try {
+      JSON.parse(user);
+    } catch {
+      window.location.href = `${getBasePath()}/login`;
+      return;
+    }
+
+    if (!auth.user) {
+      void auth.refreshUser();
+    }
+  }, [auth.refreshUser, auth.user]);
+
+  useEffect(() => {
+    if (!auth.isLoading && !auth.isAuthenticated && typeof window !== "undefined") {
+      window.location.href = `${getBasePath()}/login`;
+    }
+  }, [auth.isAuthenticated, auth.isLoading]);
 
   return auth;
 };

@@ -3,20 +3,18 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import { OnboardingProgressStepper } from "@/components/onboarding/OnboardingProgressStepper";
 import { getOAuthConnectUrl } from "@/lib/api";
 import { getClientSession } from "@/lib/client-session";
+import { navigateTo } from "@/lib/navigate";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 import type { Platform } from "@/types";
 
 const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"];
 
 export default function PlatformsPage() {
-  const router = useRouter();
-
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
   const credentials = useCompanyStore((s) => s.platformCredentials);
   const updateCredential = useCompanyStore((s) => s.updatePlatformCredential);
@@ -115,7 +113,7 @@ export default function PlatformsPage() {
 
         <button
           type="button"
-          onClick={() => router.push("/onboarding/quality-check")}
+          onClick={() => navigateTo("/onboarding/quality-check")}
           className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white"
         >
           Continue to quality check

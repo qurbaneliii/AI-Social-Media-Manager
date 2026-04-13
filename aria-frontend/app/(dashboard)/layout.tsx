@@ -4,12 +4,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { BarChart3, CalendarClock, FileText, LogOut, PlusCircle } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { navigateTo } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
 interface NavItem {
@@ -44,7 +45,6 @@ const roleNav: Record<UserRole, NavItem[]> = {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout } = useAuth();
   const { isLoading } = useRequireAuth();
 
@@ -64,9 +64,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const allowed = roleNav[activeRole].some((item) => pathname.startsWith(item.href));
     if (!allowed) {
       const fallback = roleNav[activeRole][0]?.href ?? "/posts";
-      router.replace(fallback);
+      navigateTo(fallback);
     }
-  }, [activeRole, isLoading, pathname, router]);
+  }, [activeRole, isLoading, pathname]);
 
   if (isLoading) {
     return <div className="min-h-screen bg-slate-50 px-4 py-8 text-sm text-slate-600">Loading...</div>;
@@ -82,10 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <button
             type="button"
-            onClick={async () => {
-              await logout();
-              router.push("/login");
-            }}
+            onClick={logout}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700"
           >
             <LogOut className="h-4 w-4" />

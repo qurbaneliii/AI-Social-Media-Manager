@@ -5,7 +5,6 @@
 
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -18,6 +17,7 @@ import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePresignUpload } from "@/hooks/usePresignUpload";
 import { getClientSession } from "@/lib/client-session";
 import { IS_STATIC } from "@/lib/isStatic";
+import { navigateTo } from "@/lib/navigate";
 import { mockCompanyProfile } from "@/lib/mockData";
 import { GeneratePostSchema } from "@/lib/zod-schemas";
 import {
@@ -67,7 +67,6 @@ const getFriendlyAiError = (error: unknown): string => {
 };
 
 export default function NewPostPage() {
-  const router = useRouter();
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
   const profile = useCompanyStore((s) => s.profile);
   const { user } = useAuth();
@@ -361,7 +360,7 @@ export default function NewPostPage() {
           const fullPayload = { ...payload, company_id: companyId };
           setDraftForm(fullPayload);
           const res = await generateMutation.mutateAsync(fullPayload);
-          router.push(`/posts/${res.post_id}/result`);
+          navigateTo(`/posts/${res.post_id}/result`);
         })}
       >
         <label className="block space-y-1 text-sm">

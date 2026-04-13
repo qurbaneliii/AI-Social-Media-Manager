@@ -1,18 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { IS_STATIC } from "@/lib/isStatic";
 import { AUTH_PREVIEW_MESSAGE } from "@/lib/mockData";
+import { getBasePath } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
 const roleOptions: UserRole[] = ["agency_admin", "brand_manager", "content_creator", "analyst"];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { register } = useAuth();
 
   const [name, setName] = useState("");
@@ -70,7 +69,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register({ name: name.trim(), email: email.trim(), password, role: role as UserRole });
-      router.push("/login?registered=1");
+      window.location.href = `${getBasePath()}/login?registered=1`;
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Failed to create account.";
       setErrors((prev) => ({

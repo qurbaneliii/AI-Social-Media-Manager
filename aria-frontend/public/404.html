@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script>
+    const path = window.location.pathname;
+    const base = '/AI-Social-Media-Manager';
+    if (path.startsWith(base)) {
+      sessionStorage.setItem('redirect', path);
+      window.location.replace(base + '/');
+    }
+  </script>
+</head>
+<body></body>
+</html>

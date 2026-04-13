@@ -3,7 +3,6 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -12,10 +11,10 @@ import { FileDropzone } from "@/components/ui/FileDropzone";
 import { importPostArchive } from "@/lib/api";
 import { getClientSession } from "@/lib/client-session";
 import { usePresignUpload } from "@/hooks/usePresignUpload";
+import { navigateTo } from "@/lib/navigate";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 
 export default function BrandAssetsPage() {
-  const router = useRouter();
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
   const [logoAsset, setLogoAsset] = useState<string | null>(null);
   const [sampleAssets, setSampleAssets] = useState<string[]>([]);
@@ -139,7 +138,7 @@ export default function BrandAssetsPage() {
 
         <button
           type="button"
-          onClick={() => router.push("/onboarding/vocabulary")}
+          onClick={() => navigateTo("/onboarding/vocabulary")}
           className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white"
         >
           Continue to vocabulary

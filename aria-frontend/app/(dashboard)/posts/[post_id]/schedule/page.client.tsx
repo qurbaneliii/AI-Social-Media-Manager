@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMemo } from "react";
 
 import { PostingWindowCard } from "@/components/scheduler/PostingWindowCard";
@@ -11,6 +11,7 @@ import { PLATFORM_COOLDOWN_MINUTES } from "@/config/constants";
 import { useCreateSchedule } from "@/hooks/useCreateSchedule";
 import { usePostResult } from "@/hooks/usePostResult";
 import { getClientSession } from "@/lib/client-session";
+import { navigateTo } from "@/lib/navigate";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 import { usePostStore } from "@/stores/usePostStore";
 import { useSchedulerStore } from "@/stores/useSchedulerStore";
@@ -19,7 +20,6 @@ import type { Platform } from "@/types";
 export default function PostSchedulePageClient() {
   const params = useParams<{ post_id: string }>();
   const postId = params.post_id;
-  const router = useRouter();
 
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
   const generatedPackage = usePostStore((s) => s.generatedPackage);
@@ -222,7 +222,7 @@ export default function PostSchedulePageClient() {
               : undefined
           });
 
-          router.push("/scheduler");
+          navigateTo("/scheduler");
         }}
       >
         {mutation.isPending ? "Submitting..." : "Create schedule"}

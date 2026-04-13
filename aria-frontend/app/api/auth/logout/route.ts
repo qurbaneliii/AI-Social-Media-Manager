@@ -4,7 +4,7 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth-constants";
 
 const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 export async function POST() {
   if (isStatic) {

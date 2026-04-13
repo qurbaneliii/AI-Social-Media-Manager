@@ -1,22 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { navigateTo } from "@/lib/navigate";
 import { getRoleRedirectPath } from "@/lib/role-routing";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { isLoading } = useRequireAuth();
   const { user } = useAuth();
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace(getRoleRedirectPath(user.role));
+      navigateTo(getRoleRedirectPath(user.role));
     }
-  }, [isLoading, router, user]);
+  }, [isLoading, user]);
 
   if (isLoading) {
     return <main className="mx-auto max-w-4xl px-4 py-10 text-sm text-slate-600">Loading...</main>;

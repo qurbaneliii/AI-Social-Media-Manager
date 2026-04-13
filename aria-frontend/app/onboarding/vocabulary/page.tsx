@@ -3,7 +3,6 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,10 +10,10 @@ import { OnboardingProgressStepper } from "@/components/onboarding/OnboardingPro
 import { TagInput } from "@/components/ui/TagInput";
 import { updateVocabulary } from "@/lib/api";
 import { getClientSession } from "@/lib/client-session";
+import { navigateTo } from "@/lib/navigate";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 
 export default function VocabularyPage() {
-  const router = useRouter();
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
 
   const [approved, setApproved] = useState<string[]>([]);
@@ -47,7 +46,7 @@ export default function VocabularyPage() {
             try {
               await updateVocabulary(companyId, approved, banned);
               toast.success("Vocabulary saved");
-              router.push("/onboarding/platforms");
+              navigateTo("/onboarding/platforms");
             } catch (error) {
               toast.error((error as Error).message || "Failed to save vocabulary");
             } finally {

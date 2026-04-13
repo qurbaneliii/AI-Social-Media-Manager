@@ -1,17 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { useAuth } from "@/context/AuthContext";
 import { AUTH_PREVIEW_MESSAGE } from "@/lib/mockData";
+import { getBasePath } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { continueAsPreviewUser: continueAsPreviewUserSession } = useAuth();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,25 +30,17 @@ export default function LoginPage() {
     setError(null);
     setShowPreviewModeNotice(false);
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedPassword = password.trim();
-
-    if (normalizedEmail === "preview@ariaconsole.com" && normalizedPassword === "Preview123!") {
-      const previewUser = {
+    if (email === "preview@ariaconsole.com" &&
+        password === "Preview123!") {
+      localStorage.setItem("user", JSON.stringify({
         id: "preview-user-001",
         name: "Preview User",
         email: "preview@ariaconsole.com",
         role: "brand_manager"
-      };
-      localStorage.setItem("user", JSON.stringify(previewUser));
+      }));
       localStorage.setItem("token", "preview-token-static-mode");
       localStorage.setItem("isPreview", "true");
-      localStorage.setItem("aria_token", "preview-token-static-mode");
-      localStorage.setItem("aria_role", "brand_manager");
-      localStorage.setItem("aria_company_id", "preview-company");
-      sessionStorage.setItem("aria_token", "preview-token-static-mode");
-
-      window.location.href = window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH || "") + "/dashboard";
+      window.location.href = "/AI-Social-Media-Manager/dashboard";
       return;
     }
 
@@ -93,15 +81,15 @@ export default function LoginPage() {
 
       const role = data.user.role;
       if (role === "agency_admin") {
-        router.push("/dashboard/admin");
+        window.location.href = `${getBasePath()}/dashboard/admin`;
       } else if (role === "brand_manager") {
-        router.push("/dashboard/brand");
+        window.location.href = `${getBasePath()}/dashboard/brand`;
       } else if (role === "content_creator") {
-        router.push("/dashboard/content");
+        window.location.href = `${getBasePath()}/dashboard/content`;
       } else if (role === "analyst") {
-        router.push("/dashboard/analytics");
+        window.location.href = `${getBasePath()}/dashboard/analytics`;
       } else {
-        router.push("/dashboard");
+        window.location.href = `${getBasePath()}/dashboard`;
       }
     } catch {
       setError("Connection failed. Please try again.");
@@ -111,9 +99,17 @@ export default function LoginPage() {
     }
   };
 
-  const handleContinueAsPreviewUser = () => {
-    continueAsPreviewUserSession();
-    router.push("/dashboard");
+  const handlePreviewLogin = () => {
+    const previewUser = {
+      id: "preview-user-001",
+      name: "Preview User",
+      email: "preview@ariaconsole.com",
+      role: "brand_manager"
+    };
+    localStorage.setItem("user", JSON.stringify(previewUser));
+    localStorage.setItem("token", "preview-token-static-mode");
+    localStorage.setItem("isPreview", "true");
+    window.location.href = "/AI-Social-Media-Manager/dashboard";
   };
 
   return (
@@ -163,7 +159,7 @@ export default function LoginPage() {
           <button
             className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
             type="button"
-            onClick={handleContinueAsPreviewUser}
+            onClick={handlePreviewLogin}
           >
             Continue as Preview User
           </button>

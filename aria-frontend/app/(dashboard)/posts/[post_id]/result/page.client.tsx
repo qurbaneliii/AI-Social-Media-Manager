@@ -19,6 +19,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { AUDIENCE_CONFIDENCE_THRESHOLDS, PLATFORM_CHAR_LIMITS, PLATFORM_HASHTAG_CAPS, QUALITY_SCORE_THRESHOLDS } from "@/config/constants";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePostResult } from "@/hooks/usePostResult";
+import { navigateTo } from "@/lib/navigate";
 import { usePostStore } from "@/stores/usePostStore";
 import { useSchedulerStore } from "@/stores/useSchedulerStore";
 import { useUIStore } from "@/stores/useUIStore";
@@ -98,7 +99,7 @@ export default function PostResultPageClient() {
           onClick={async () => {
             if (!draftForm.company_id) return;
             const res = await generateMutation.mutateAsync(draftForm as any);
-            window.location.href = `/posts/${res.post_id}/result`;
+            navigateTo(`/posts/${res.post_id}/result`);
           }}
         >
           Retry generation
@@ -154,7 +155,7 @@ export default function PostResultPageClient() {
               }
 
               const regenerated = await generateMutation.mutateAsync(draftForm as any);
-              window.location.href = `/posts/${regenerated.post_id}/result`;
+              navigateTo(`/posts/${regenerated.post_id}/result`);
             }}
           >
             {generateMutation.isPending ? "Regenerating..." : "Regenerate"}

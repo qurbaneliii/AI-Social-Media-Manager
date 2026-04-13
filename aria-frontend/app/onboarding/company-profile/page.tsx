@@ -5,13 +5,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ONBOARDING_PASS_THRESHOLD, POSTING_FREQUENCY_LIMITS } from "@/config/constants";
 import { submitCompanyProfile } from "@/lib/api";
 import { setClientCompanyId } from "@/lib/client-session";
+import { navigateTo } from "@/lib/navigate";
 import { CompanyProfileSchema } from "@/lib/zod-schemas";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 import type { CTAType, CompanyProfileForm, Platform } from "@/types";
@@ -22,7 +22,6 @@ const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok
 const ctaTypes: CTAType[] = ["learn_more", "book_demo", "buy_now", "download", "comment", "share"];
 
 export default function CompanyProfilePage() {
-  const router = useRouter();
   const setCompanyId = useCompanyStore((s) => s.setCompanyId);
   const setProfile = useCompanyStore((s) => s.setProfile);
 
@@ -71,7 +70,7 @@ export default function CompanyProfilePage() {
       setCompanyId(data.company_id);
       setClientCompanyId(data.company_id);
       toast.success("Company profile saved");
-      router.push("/onboarding/brand-assets");
+      navigateTo("/onboarding/brand-assets");
     },
     onError: (error) => {
       toast.error((error as Error).message || "Failed to save company profile");
