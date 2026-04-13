@@ -8,8 +8,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { BarChart3, CalendarClock, FileText, LogOut, PlusCircle } from "lucide-react";
 
-import { clearClientSession, getClientSession } from "@/lib/client-session";
-import { useCompanyStore } from "@/stores/useCompanyStore";
+import { useAuth } from "@/context/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import type { UserRole } from "@/types";
 
 interface NavItem {
@@ -45,28 +45,10 @@ const roleNav: Record<UserRole, NavItem[]> = {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
+  const { isLoading } = useRequireAuth();
 
-  const activeRole = useCompanyStore((s) => s.activeRole);
-  const setActiveRole = useCompanyStore((s) => s.setActiveRole);
-  const companyId = useCompanyStore((s) => s.companyId);
-  const setCompanyId = useCompanyStore((s) => s.setCompanyId);
-
-  useEffect(() => {
-    if (activeRole && companyId) {
-      return;
-    }
-    const session = getClientSession();
-    if (!session.token || !session.role || !session.companyId) {
-      router.replace("/signin");
-      return;
-    }
-    if (!activeRole) {
-      setActiveRole(session.role);
-    }
-    if (!companyId) {
-      setCompanyId(session.companyId);
-    }
-  }, [activeRole, companyId, router, setActiveRole, setCompanyId]);
+  const activeRole = user?.role ?? null;
 
   const navItems = useMemo(() => {
     if (!activeRole) {
@@ -76,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [activeRole]);
 
   useEffect(() => {
-    if (!activeRole) {
+    if (isLoading || !activeRole) {
       return;
     }
     const allowed = roleNav[activeRole].some((item) => pathname.startsWith(item.href));
@@ -84,7 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const fallback = roleNav[activeRole][0]?.href ?? "/posts";
       router.replace(fallback);
     }
-  }, [activeRole, pathname, router]);
+  }, [activeRole, isLoading, pathname, router]);
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-slate-50 px-4 py-8 text-sm text-slate-600">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -96,9 +82,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <button
             type="button"
-            onClick={() => {
-              clearClientSession();
-              router.push("/signin");
+            onClick={async () => {
+              await logout();
+              router.push("/login");
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700"
           >

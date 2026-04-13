@@ -1,11 +1,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { UserRole } from "@/types";
 
 interface AuthUser {
   id: string;
   email: string;
   name: string | null;
+  role: UserRole;
 }
 
 interface LoginInput {
@@ -14,16 +16,17 @@ interface LoginInput {
 }
 
 interface RegisterInput {
-  name?: string;
+  name: string;
   email: string;
   password: string;
+  role: UserRole;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (input: LoginInput) => Promise<void>;
+  login: (input: LoginInput) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -83,6 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const payload = (await response.json()) as { user: AuthUser; token: string };
     setUser(payload.user);
+    return payload.user;
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {

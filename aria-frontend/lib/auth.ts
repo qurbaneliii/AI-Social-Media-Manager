@@ -3,10 +3,12 @@ import "server-only";
 import jwt from "jsonwebtoken";
 
 import { AUTH_TOKEN_EXPIRY_SECONDS } from "@/lib/auth-constants";
+import type { UserRole } from "@/types";
 
 export interface AuthTokenPayload {
   userId: string;
   email: string;
+  role: UserRole;
   iat?: number;
   exp?: number;
 }

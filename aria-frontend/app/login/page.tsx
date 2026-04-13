@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
+import { getRoleRedirectPath } from "@/lib/role-routing";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,8 +25,8 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login({ email: email.trim(), password });
-      router.push("/dashboard");
+      const user = await login({ email: email.trim(), password });
+      router.push(getRoleRedirectPath(user.role));
     } catch {
       setError("Invalid email or password.");
     } finally {
@@ -34,23 +35,26 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-10">
-      <section className="w-full space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900">Log in</h1>
-          <p className="text-sm text-slate-600">Welcome back to ARIA.</p>
-        </header>
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-8">
+      <section className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl md:grid-cols-2">
+        <div className="bg-gradient-to-br from-teal-700 via-sky-700 to-cyan-700 p-8 text-white">
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-100">ARIA Console</p>
+          <h1 className="mt-3 text-3xl font-semibold">Scale your social pipeline</h1>
+          <p className="mt-4 text-sm text-cyan-100">Generate platform-native content, review quality signals, and schedule with confidence.</p>
+        </div>
 
-        {registered ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Account created. Please log in.</p> : null}
+        <form onSubmit={submit} className="space-y-4 p-8">
+          <h2 className="text-xl font-semibold text-slate-900">Sign in</h2>
 
-        <form onSubmit={submit} className="space-y-4">
+          {registered ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Account created. Please sign in.</p> : null}
+
           <label className="block space-y-1 text-sm text-slate-700">
             <span>Email</span>
             <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
               required
             />
           </label>
@@ -58,28 +62,27 @@ export default function LoginPage() {
           <label className="block space-y-1 text-sm text-slate-700">
             <span>Password</span>
             <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
               required
             />
           </label>
 
-          {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {isSubmitting ? "Signing in..." : "Log in"}
+          <button className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
-        </form>
 
-        <p className="text-sm text-slate-600">
-          Need an account? <Link href="/register" className="font-medium text-slate-900 underline">Sign up</Link>
-        </p>
+          <p className="text-sm text-slate-600">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="font-medium text-slate-900 underline">
+              Register
+            </Link>
+          </p>
+        </form>
       </section>
     </main>
   );

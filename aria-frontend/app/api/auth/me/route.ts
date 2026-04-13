@@ -30,10 +30,10 @@ export async function GET(request: NextRequest) {
     where: { id: decoded.userId },
     select: {
       id: true,
-      email: true,
       name: true,
+      email: true,
+      role: true,
       createdAt: true,
-      updatedAt: true
     }
   });
 

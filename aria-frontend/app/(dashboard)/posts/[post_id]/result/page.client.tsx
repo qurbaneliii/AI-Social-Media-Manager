@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AudienceConfidenceBadge } from "@/components/audience/AudienceConfidenceBadge";
 import { HashtagTierDisplay } from "@/components/hashtags/HashtagTierDisplay";
@@ -122,9 +123,47 @@ export default function PostResultPageClient() {
     <main className="space-y-6 rounded-2xl border bg-white p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Post result</h1>
-        <Link href={`/posts/${postId}/schedule`} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white">
-          Continue to schedule
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!chosenVariant?.text}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
+            onClick={async () => {
+              if (!chosenVariant?.text) {
+                return;
+              }
+              try {
+                await navigator.clipboard.writeText(chosenVariant.text);
+                toast.success("Copied generated content");
+              } catch {
+                toast.error("Could not copy content");
+              }
+            }}
+          >
+            Copy selected content
+          </button>
+
+          <button
+            type="button"
+            disabled={generateMutation.isPending || !draftForm.company_id}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
+            onClick={async () => {
+              if (!draftForm.company_id) {
+                toast.error("Missing draft payload for regeneration");
+                return;
+              }
+
+              const regenerated = await generateMutation.mutateAsync(draftForm as any);
+              window.location.href = `/posts/${regenerated.post_id}/result`;
+            }}
+          >
+            {generateMutation.isPending ? "Regenerating..." : "Regenerate"}
+          </button>
+
+          <Link href={`/posts/${postId}/schedule`} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white">
+            Continue to schedule
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2">
