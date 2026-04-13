@@ -34,6 +34,21 @@ export default function LoginPage() {
     setError(null);
     setShowPreviewModeNotice(false);
 
+    if (email === "preview@ariaconsole.com" && password === "Preview123!") {
+      const previewUser = {
+        id: "preview-user-001",
+        name: "Preview User",
+        email: "preview@ariaconsole.com",
+        role: "brand_manager"
+      };
+      localStorage.setItem("user", JSON.stringify(previewUser));
+      localStorage.setItem("token", "preview-token-static-mode");
+      localStorage.setItem("isPreview", "true");
+
+      window.location.href = window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH || "") + "/dashboard";
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/auth/login", {
