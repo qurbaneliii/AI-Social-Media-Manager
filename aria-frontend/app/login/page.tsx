@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
-import { IS_STATIC } from "@/lib/isStatic";
 import { AUTH_PREVIEW_MESSAGE } from "@/lib/mockData";
-import { getRoleRedirectPath } from "@/lib/role-routing";
+import type { UserRole } from "@/types";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { continueAsPreviewUser: continueAsPreviewUserSession, login } = useAuth();
+  const { continueAsPreviewUser: continueAsPreviewUserSession } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPreviewModeNotice, setShowPreviewModeNotice] = useState(false);
 
   const [registered, setRegistered] = useState(false);
 
@@ -32,13 +32,58 @@ export default function LoginPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setShowPreviewModeNotice(false);
 
     setIsSubmitting(true);
     try {
-      const user = await login({ email: email.trim(), password });
-      router.push(getRoleRedirectPath(user.role));
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: email.trim(), password })
+      });
+
+      let data: { token?: string; user?: { role?: UserRole }; error?: string } = {};
+      try {
+        data = (await response.json()) as { token?: string; user?: { role?: UserRole }; error?: string };
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+        setError(data.error ?? "Invalid email or password");
+        return;
+      }
+
+      if (!data.token || !data.user?.role) {
+        setError("Invalid server response.");
+        return;
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("aria_token", data.token);
+        sessionStorage.setItem("aria_token", data.token);
+        localStorage.setItem("aria_role", data.user.role);
+      }
+
+      const role = data.user.role;
+      if (role === "agency_admin") {
+        router.push("/dashboard/admin");
+      } else if (role === "brand_manager") {
+        router.push("/dashboard/brand");
+      } else if (role === "content_creator") {
+        router.push("/dashboard/content");
+      } else if (role === "analyst") {
+        router.push("/dashboard/analytics");
+      } else {
+        router.push("/dashboard");
+      }
     } catch {
-      setError(IS_STATIC ? AUTH_PREVIEW_MESSAGE : "Invalid email or password.");
+      setError("Connection failed. Please try again.");
+      setShowPreviewModeNotice(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,11 +132,7 @@ export default function LoginPage() {
 
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
-          {IS_STATIC ? (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              {AUTH_PREVIEW_MESSAGE}
-            </p>
-          ) : null}
+          {showPreviewModeNotice ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{AUTH_PREVIEW_MESSAGE}</p> : null}
 
           <button className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}

@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "export": "next build",
+    "seed": "ts-node scripts/seed.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "postbuild": "touch out/.nojekyll"

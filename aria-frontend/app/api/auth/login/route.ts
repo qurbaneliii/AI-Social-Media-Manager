@@ -6,7 +6,7 @@ import { signAuthToken } from "@/lib/auth";
 import { AUTH_COOKIE_NAME, AUTH_TOKEN_EXPIRY_SECONDS } from "@/lib/auth-constants";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const loginSchema = z.object({
   email: z.string().trim().email(),

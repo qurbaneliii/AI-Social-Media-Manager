@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { AUTH_PREVIEW_MESSAGE, PREVIEW_USER_STORAGE_KEY, mockUser } from "@/lib/mockData";
+import { PREVIEW_USER_STORAGE_KEY, mockUser } from "@/lib/mockData";
 import { IS_STATIC } from "@/lib/isStatic";
 import type { UserRole } from "@/types";
 
@@ -97,10 +97,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [refreshUser]);
 
   const login = useCallback(async (input: LoginInput) => {
-    if (IS_STATIC) {
-      throw new Error(AUTH_PREVIEW_MESSAGE);
-    }
-
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
@@ -120,10 +116,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
-    if (IS_STATIC) {
-      throw new Error(AUTH_PREVIEW_MESSAGE);
-    }
-
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
