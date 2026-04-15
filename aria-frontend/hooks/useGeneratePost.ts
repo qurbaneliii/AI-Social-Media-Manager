@@ -19,8 +19,8 @@ export const useGeneratePost = () => {
     mutationFn: (data: GeneratePostForm) => generatePost(data),
     onSuccess: (data) => {
       setPostId(data.post_id);
-      setGenerationStatus("generating");
-      setEstimatedReadySeconds(data.estimated_ready_seconds);
+      setGenerationStatus(data.status);
+      setEstimatedReadySeconds(data.estimated_ready_seconds ?? (data.status === "generated" ? 0 : null));
     },
     onError: (error) => {
       const err = error as ApiError;

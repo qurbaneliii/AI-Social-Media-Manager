@@ -2,10 +2,17 @@ import "server-only";
 
 import OpenAI from "openai";
 
-const apiKey = process.env.OPENAI_API_KEY;
+let openaiClient: OpenAI | null = null;
 
-if (!apiKey) {
-  throw new Error("OPENAI_API_KEY is not configured");
-}
+export const getOpenAIClient = (): OpenAI => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
 
-export const openai = new OpenAI({ apiKey });
+  if (openaiClient === null) {
+    openaiClient = new OpenAI({ apiKey });
+  }
+
+  return openaiClient;
+};

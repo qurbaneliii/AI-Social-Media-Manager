@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+import os
 from typing import Any
 
 import asyncpg
@@ -30,6 +32,89 @@ class GeneratePostRequest(BaseModel):
     manual_keywords: list[str] | None = None
     urgency_level: str
     requested_publish_at: str | None = None
+
+
+def _has_llm_provider_keys() -> bool:
+    return any(
+        os.getenv(name)
+        for name in (
+            "DEEPSEEK_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "MISTRAL_API_KEY",
+        )
+    )
+
+
+def _build_local_variant_text(core_message: str, platform: str) -> str:
+    message = core_message.strip() or "Local AI draft"
+    suffix = f" #{platform} #aiworkflow"
+    return f"{message}{suffix}"
+
+
+def _build_local_generated_package(post_id: str, variants: list[dict[str, Any]]) -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    broad_tags = [{"tag": "aiworkflow", "score": 0.8}, {"tag": "socialmedia", "score": 0.74}]
+    return {
+        "post_id": post_id,
+        "variants": variants,
+        "selected_variant_id": variants[0]["variant_id"] if variants else "",
+        "hashtag_set": {
+            "broad": broad_tags,
+            "niche": [{"tag": "contentops", "score": 0.68}],
+            "micro": [{"tag": "localmvp", "score": 0.61}],
+        },
+        "audience_definition": {
+            "primary_demographic": {
+                "age_range": "25-44",
+                "gender_split": {"female": 48, "male": 48, "non_binary": 4},
+                "locations": ["US"],
+            },
+            "psychographic_profile": {
+                "interests": ["social media", "automation"],
+                "values": ["clarity", "consistency"],
+                "pain_points": ["content fatigue"],
+            },
+            "platform_segments": {
+                "facebook_custom_audience": {"include_rules": [], "exclude_rules": []},
+                "linkedin_audience_attributes": {"job_titles": ["Marketing Manager"], "industries": ["SaaS"], "seniority": ["Manager"]},
+                "x_interest_clusters": ["marketing"],
+                "tiktok_interest_categories": ["business"],
+            },
+            "natural_language_summary": "Local MVP audience profile generated without external LLM providers.",
+            "confidence": 0.7,
+        },
+        "posting_schedule_recommendation": [
+            {
+                "platform": variants[0]["platform"] if variants else "linkedin",
+                "windows": [
+                    {
+                        "start_local": now.isoformat(),
+                        "end_local": (now + timedelta(hours=1)).isoformat(),
+                        "rank": 1,
+                        "confidence": 0.72,
+                        "reason_codes": ["local_fallback"],
+                    }
+                ],
+            }
+        ],
+        "seo_metadata": {
+            "meta_title": "AI Social Post",
+            "meta_description": "Generated locally for MVP mode.",
+            "alt_text": "AI generated social media visual",
+            "keywords": ["ai", "social", "automation"],
+        },
+        "content_quality_score": {
+            "overall": 78,
+            "subscores": {
+                "engagement_prediction": 76,
+                "tone_match": 80,
+                "platform_compliance": 84,
+                "keyword_coverage": 74,
+                "cta_strength": 76,
+            },
+        },
+    }
 
 
 def _coerce_score_0_to_100(value: Any) -> float:
@@ -113,6 +198,7 @@ def _build_generated_package(post: dict[str, Any], variants: list[dict[str, Any]
 async def generate_post(payload: GeneratePostRequest, request: Request) -> dict[str, Any]:
     pool: asyncpg.Pool = request.app.state.db_pool
     posts = PostRepository(pool)
+    local_response: dict[str, Any] | None = None
 
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -128,6 +214,85 @@ async def generate_post(payload: GeneratePostRequest, request: Request) -> dict[
             )
             post_id = str(post["post_id"])
             await posts.update_status(post_id, "generating", conn=conn)
+
+            # Local fallback mode: generate deterministic package when no external provider keys are configured.
+            if not _has_llm_provider_keys():
+                persisted_variants: list[dict[str, Any]] = []
+                selected_variant_id: str | None = None
+
+                for idx, platform in enumerate(payload.target_platforms[:3], start=1):
+                    text = _build_local_variant_text(payload.core_message, platform)
+                    score = float(max(60, 80 - ((idx - 1) * 2)))
+                    scores_json = {
+                        "score": score,
+                        "engagement_predicted": score,
+                        "tone_match": min(score + 2, 100),
+                        "cta_presence": max(score - 3, 0),
+                        "keyword_inclusion": max(score - 1, 0),
+                        "platform_compliance": min(score + 4, 100),
+                    }
+
+                    row = await conn.fetchrow(
+                        """
+                        INSERT INTO post_variants (
+                            post_id, company_id, platform, variant_order,
+                            text, char_count, scores_json, is_selected
+                        ) VALUES (
+                            $1::uuid, $2::uuid, $3, $4,
+                            $5, $6, $7::jsonb, $8
+                        )
+                        RETURNING variant_id
+                        """,
+                        post_id,
+                        payload.company_id,
+                        platform,
+                        idx,
+                        text,
+                        len(text),
+                        scores_json,
+                        idx == 1,
+                    )
+
+                    variant_id = str(row["variant_id"])
+                    persisted_variants.append(
+                        {
+                            "variant_id": variant_id,
+                            "platform": platform,
+                            "text": text,
+                            "char_count": len(text),
+                            "provider_used": "local-fallback",
+                            "cached": True,
+                            "scores": {
+                                "engagement_predicted": scores_json["engagement_predicted"],
+                                "tone_match": scores_json["tone_match"],
+                                "cta_presence": scores_json["cta_presence"],
+                                "keyword_inclusion": scores_json["keyword_inclusion"],
+                                "platform_compliance": scores_json["platform_compliance"],
+                                "total": scores_json["score"],
+                            },
+                        }
+                    )
+                    if idx == 1:
+                        selected_variant_id = variant_id
+
+                package = _build_local_generated_package(post_id, persisted_variants)
+                await posts.attach_generated_package(post_id, package, 78.0, conn=conn)
+
+                if selected_variant_id:
+                    await conn.execute(
+                        "UPDATE posts SET selected_variant_id = $2::uuid, updated_at = now() WHERE post_id = $1::uuid",
+                        post_id,
+                        selected_variant_id,
+                    )
+
+                local_response = {
+                    "post_id": post_id,
+                    "status": "generated",
+                    "estimated_ready_seconds": 0,
+                }
+
+    if local_response is not None:
+        return local_response
 
     generation_payload = {
         "intent": payload.post_intent,

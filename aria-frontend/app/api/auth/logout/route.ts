@@ -2,15 +2,9 @@ import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth-constants";
 
-const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
-
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export async function POST() {
-  if (isStatic) {
-    return NextResponse.json({ message: "Preview mode" }, { status: 200 });
-  }
-
   const response = NextResponse.json({ message: "Logged out" }, { status: 200 });
   response.cookies.set({
     name: AUTH_COOKIE_NAME,

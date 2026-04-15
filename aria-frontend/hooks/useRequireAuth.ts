@@ -14,7 +14,7 @@ export const useRequireAuth = () => {
     }
 
     const user = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") ?? localStorage.getItem("aria_token");
     if (!user || !token) {
       window.location.href = `${getBasePath()}/login`;
       return;

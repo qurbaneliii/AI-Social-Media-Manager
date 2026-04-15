@@ -36,6 +36,13 @@ class ScheduleRequest(BaseModel):
     manual_override: dict[str, Any] | None = None
 
 
+class ApproveScheduleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    company_id: str | None = None
+    approved_by: str | None = None
+
+
 @router.post("")
 async def create_schedule(payload: ScheduleRequest, request: Request) -> dict[str, Any]:
     service: PostingService = request.app.state.posting_service
@@ -81,3 +88,45 @@ async def get_schedule(schedule_id: str, request: Request, company_id: str | Non
     if row is None:
         raise HTTPException(status_code=404, detail="Schedule not found")
     return dict(row)
+
+
+@router.post("/{schedule_id}/approve")
+async def approve_schedule(
+    schedule_id: str,
+    request: Request,
+    payload: ApproveScheduleRequest | None = None,
+) -> dict[str, Any]:
+    company_id = payload.company_id if payload else None
+    approved_by = payload.approved_by if payload else None
+
+    pool: asyncpg.Pool = request.app.state.db_pool
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            if company_id:
+                await set_tenant(conn, company_id)
+            else:
+                await set_tenant(conn, SERVICE_COMPANY_ID, role="service")
+
+            row = await conn.fetchrow(
+                """
+                UPDATE schedules
+                SET status = CASE WHEN status = 'awaiting_approval' THEN 'queued' ELSE status END,
+                    approved_at = now(),
+                    approved_by = COALESCE($2::uuid, approved_by)
+                WHERE schedule_id = $1::uuid
+                RETURNING schedule_id, status, approved_at, approved_by
+                """,
+                schedule_id,
+                approved_by,
+            )
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    return {
+        "approved": True,
+        "schedule_id": str(row["schedule_id"]),
+        "status": str(row["status"]),
+        "approved_at": row["approved_at"],
+        "approved_by": str(row["approved_by"]) if row["approved_by"] else None,
+    }

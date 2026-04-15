@@ -3,7 +3,6 @@
 
 "use client";
 
-import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -16,9 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
 import { usePresignUpload } from "@/hooks/usePresignUpload";
 import { getClientSession } from "@/lib/client-session";
-import { IS_STATIC } from "@/lib/isStatic";
 import { navigateTo } from "@/lib/navigate";
-import { mockCompanyProfile } from "@/lib/mockData";
 import { GeneratePostSchema } from "@/lib/zod-schemas";
 import {
   analyzeContent,
@@ -37,6 +34,31 @@ import type { GeneratePostForm, Platform, PostIntent, UserRole } from "@/types";
 
 const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"];
 const intents: PostIntent[] = ["announce", "educate", "promote", "engage", "inspire", "crisis_response"];
+
+const DEFAULT_COMPANY_ID =
+  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID ??
+  "00000000-0000-0000-0000-000000000000";
+
+const FALLBACK_COMPANY_PROFILE = {
+  platforms: ["linkedin", "twitter", "instagram"] as AIPlatform[],
+  postingFrequency: {
+    linkedin: 3,
+    twitter: 5,
+    instagram: 3
+  },
+  ctaTypes: ["learn_more", "book_demo", "download"] as const,
+  brandColors: ["#0EA5E9", "#0F172A", "#14B8A6"],
+  approvedVocabulary: ["automation", "consistency", "pipeline"],
+  bannedVocabulary: ["guaranteed", "overnight"],
+  companyName: "Local Company",
+  industry: "technology",
+  targetMarket: {
+    regions: ["US"],
+    segments: ["B2B"],
+    personaSummary: "Marketing managers and founders"
+  },
+  tone: ["professional", "clear"]
+};
 
 const roleDefaultIntent: Record<UserRole, PostIntent> = {
   agency_admin: "promote",
@@ -67,7 +89,10 @@ const getFriendlyAiError = (error: unknown): string => {
 };
 
 export default function NewPostPage() {
-  const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
+  const companyId =
+    useCompanyStore((s) => s.companyId) ??
+    getClientSession().companyId ??
+    DEFAULT_COMPANY_ID;
   const profile = useCompanyStore((s) => s.profile);
   const { user } = useAuth();
   const setDraftForm = usePostStore((s) => s.setDraftForm);
@@ -104,9 +129,7 @@ export default function NewPostPage() {
         targetMarket: profile.target_market,
         tone: profile.tone_of_voice_descriptors
       }
-    : IS_STATIC
-      ? mockCompanyProfile
-      : null;
+    : FALLBACK_COMPANY_PROFILE;
 
   const form = useForm<GeneratePostForm>({
     resolver: zodResolver(GeneratePostSchema),
@@ -124,19 +147,19 @@ export default function NewPostPage() {
   });
 
   useEffect(() => {
-    if ((!profile && !IS_STATIC) || didPrefillFromProfile) {
+    if (didPrefillFromProfile) {
       return;
     }
 
     const activePlatforms = profile
       ? platforms.filter((platform) => profile.platform_presence[platform])
-      : mockCompanyProfile.platforms.map((platform) => (platform === "twitter" ? "x" : platform as Platform));
+      : FALLBACK_COMPANY_PROFILE.platforms.map((platform) => (platform === "twitter" ? "x" : platform as Platform));
     if (activePlatforms.length > 0) {
       form.setValue("target_platforms", activePlatforms, { shouldValidate: true });
       setAiPlatform(toAIPlatform(activePlatforms[0]));
     }
 
-    const approved = profile?.approved_vocabulary_list ?? [...mockCompanyProfile.approvedVocabulary];
+    const approved = profile?.approved_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.approvedVocabulary];
     if (approved.length > 0) {
       form.setValue("manual_keywords", approved.slice(0, 8), { shouldValidate: true });
     }
@@ -148,10 +171,6 @@ export default function NewPostPage() {
     setDidPrefillFromProfile(true);
   }, [didPrefillFromProfile, form, profile, user?.role]);
 
-  if (!companyId) {
-    return <div className="rounded-xl border bg-white p-6 text-sm text-red-700">Company ID is required. Return to sign in.</div>;
-  }
-
   const selectedTargets = form.watch("target_platforms");
   const strictestLimit = selectedTargets.length
     ? Math.min(...selectedTargets.map((platform) => PLATFORM_CHAR_LIMITS[platform]))
@@ -160,26 +179,22 @@ export default function NewPostPage() {
   const aiResult = improvedContent || generatedContent;
 
   const buildGeneratePayload = (platformOverride?: AIPlatform) => {
-    if (!resolvedCompanyProfile) {
-      return null;
-    }
-
     const resolvedPlatform = platformOverride ?? aiPlatform;
     const frontendPlatform = toPlatform(resolvedPlatform);
     const topic =
-      form.getValues("core_message").trim() || `${profile?.company_name ?? "Preview Company"} update`;
+      form.getValues("core_message").trim() || `${profile?.company_name ?? FALLBACK_COMPANY_PROFILE.companyName} update`;
 
     return {
       platform: resolvedPlatform,
       topic,
       tone: profile ? profile.tone_of_voice_descriptors.join(", ") || "professional" : "professional",
-      ctaType: (profile?.primary_cta_types[0] ?? mockCompanyProfile.ctaTypes[0]) as any,
-      brandColors: profile?.brand_color_hex_codes ?? [...mockCompanyProfile.brandColors],
-      approvedVocabulary: profile?.approved_vocabulary_list ?? [...mockCompanyProfile.approvedVocabulary],
-      bannedVocabulary: profile?.banned_vocabulary_list ?? [...mockCompanyProfile.bannedVocabulary],
+      ctaType: (profile?.primary_cta_types[0] ?? FALLBACK_COMPANY_PROFILE.ctaTypes[0]) as any,
+      brandColors: profile?.brand_color_hex_codes ?? [...FALLBACK_COMPANY_PROFILE.brandColors],
+      approvedVocabulary: profile?.approved_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.approvedVocabulary],
+      bannedVocabulary: profile?.banned_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.bannedVocabulary],
       postingFrequency: profile
         ? profile.posting_frequency_goal[frontendPlatform]
-        : mockCompanyProfile.postingFrequency[frontendPlatform === "x" ? "twitter" : "linkedin"],
+        : FALLBACK_COMPANY_PROFILE.postingFrequency[frontendPlatform === "x" ? "twitter" : "linkedin"],
       companyProfile: {
         companyId,
         ...resolvedCompanyProfile,
@@ -191,10 +206,6 @@ export default function NewPostPage() {
 
   const handleGenerateWithAI = async () => {
     const payload = buildGeneratePayload();
-    if (!payload) {
-      setAiError("Complete your company profile for better AI results");
-      return;
-    }
 
     setAiError(null);
     setIsGeneratingAI(true);
@@ -213,11 +224,6 @@ export default function NewPostPage() {
   };
 
   const handleBatchGenerate = async () => {
-    if (!resolvedCompanyProfile) {
-      setAiError("Complete your company profile for better AI results");
-      return;
-    }
-
     const targetPlatforms = selectedTargets.length > 0 ? selectedTargets : [toPlatform(aiPlatform)];
     const payloads = targetPlatforms
       .map((platform) => buildGeneratePayload(toAIPlatform(platform)))
@@ -304,11 +310,6 @@ export default function NewPostPage() {
   };
 
   const handleSuggestTopics = async () => {
-    if (!resolvedCompanyProfile) {
-      setAiError("Complete your company profile for better AI results");
-      return;
-    }
-
     const platformsForTopicRequest =
       selectedTargets.length > 0 ? selectedTargets.map(toAIPlatform) : [aiPlatform];
 
@@ -316,14 +317,14 @@ export default function NewPostPage() {
     setIsSuggestingTopics(true);
     try {
       const response = await suggestTopics({
-        industry: profile?.industry_vertical ?? "marketing",
+        industry: profile?.industry_vertical ?? FALLBACK_COMPANY_PROFILE.industry,
         platforms: platformsForTopicRequest,
         companyProfile: {
           companyId,
-          companyName: profile?.company_name ?? "Preview Company",
+          companyName: profile?.company_name ?? FALLBACK_COMPANY_PROFILE.companyName,
           userRole: user?.role ?? null,
-          targetMarket: profile?.target_market ?? {},
-          tone: profile?.tone_of_voice_descriptors ?? ["professional"]
+          targetMarket: profile?.target_market ?? FALLBACK_COMPANY_PROFILE.targetMarket,
+          tone: profile?.tone_of_voice_descriptors ?? FALLBACK_COMPANY_PROFILE.tone
         }
       });
       setTopics(response.topics);
@@ -357,6 +358,10 @@ export default function NewPostPage() {
       <form
         className="space-y-5"
         onSubmit={form.handleSubmit(async (payload) => {
+          if (!profile) {
+            toast.error("Complete company profile onboarding before full post generation.");
+            return;
+          }
           const fullPayload = { ...payload, company_id: companyId };
           setDraftForm(fullPayload);
           const res = await generateMutation.mutateAsync(fullPayload);
@@ -424,16 +429,9 @@ export default function NewPostPage() {
             </p>
           </header>
 
-          {!resolvedCompanyProfile ? (
+          {!profile ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Complete your company profile for better AI results. {" "}
-              <Link href="/onboarding/company-profile" className="font-medium underline">
-                Go to company profile settings
-              </Link>
-            </p>
-          ) : IS_STATIC ? (
-            <p className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-xs text-sky-800">
-              Preview mode: AI actions are using mock/static responses.
+              Company profile is not set yet. AI Studio works with local defaults, and full post generation is enabled after onboarding.
             </p>
           ) : null}
 

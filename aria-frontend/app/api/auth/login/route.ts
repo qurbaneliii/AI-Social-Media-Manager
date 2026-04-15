@@ -6,9 +6,7 @@ import { signAuthToken } from "@/lib/auth";
 import { AUTH_COOKIE_NAME, AUTH_TOKEN_EXPIRY_SECONDS } from "@/lib/auth-constants";
 import { prisma } from "@/lib/prisma";
 
-const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
-
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
@@ -16,10 +14,6 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (isStatic) {
-    return NextResponse.json({ error: "Authentication requires a live server." }, { status: 503 });
-  }
-
   try {
     const payload = loginSchema.parse(await request.json());
 

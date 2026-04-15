@@ -7,7 +7,7 @@ import {
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const generateBatchSchema = z.union([
   z.array(generateContentSchema).min(1),

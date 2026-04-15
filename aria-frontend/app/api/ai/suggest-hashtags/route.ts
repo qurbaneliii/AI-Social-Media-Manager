@@ -3,12 +3,14 @@ import { z } from "zod";
 
 import {
   aiPlatformSchema,
+  fallbackHashtags,
+  hasOpenAIKey,
   safeJsonParse,
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
-import { openai } from "@/lib/openai";
+import { getOpenAIClient } from "@/lib/openai";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const suggestHashtagsSchema = z.object({
   content: z.string().trim().min(1).max(6000),
@@ -22,6 +24,12 @@ const hashtagResponseSchema = z.object({
 export async function POST(request: Request) {
   try {
     const payload = suggestHashtagsSchema.parse(await request.json());
+
+    if (!hasOpenAIKey()) {
+      return NextResponse.json(fallbackHashtags(payload.content), { status: 200 });
+    }
+
+    const openai = getOpenAIClient();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

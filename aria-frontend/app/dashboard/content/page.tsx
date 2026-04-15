@@ -1,7 +1,13 @@
 "use client";
 
-import FullDashboardUI from "@/components/dashboard/FullDashboardUI";
+import { useEffect } from "react";
+
+import { navigateTo } from "@/lib/navigate";
 
 export default function ContentDashboardPage() {
-  return <FullDashboardUI title="Content Dashboard" subtitle="Draft, generate, and optimize social posts with static mock data." />;
+  useEffect(() => {
+    navigateTo("/posts/new");
+  }, []);
+
+  return <main className="mx-auto max-w-4xl px-4 py-10 text-sm text-slate-600">Redirecting to post studio...</main>;
 }

@@ -8,7 +8,7 @@ from typing import Any
 
 import asyncpg
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.tasks import run_onboarding_quality_check
@@ -31,7 +31,7 @@ class CompanyProfileRequest(BaseModel):
     target_market: dict[str, Any]
     brand_positioning_statement: str = Field(min_length=30, max_length=500)
     tone_of_voice_descriptors: list[str] = Field(min_length=3, max_length=20)
-    competitor_list: list[str] = Field(min_length=1, max_length=20)
+    competitor_list: list[str] = Field(default_factory=list, max_length=20)
     platform_presence: dict[str, bool]
     posting_frequency_goal: dict[str, int]
     primary_cta_types: list[str]
@@ -139,10 +139,42 @@ async def update_vocabulary(payload: VocabularyRequest, request: Request) -> dic
 
 
 @router.post("/import")
-async def onboarding_import(payload: ImportRequest, request: Request) -> dict[str, Any]:
+async def onboarding_import(
+    request: Request,
+    company_id: str | None = Query(default=None),
+    file: UploadFile | None = File(default=None),
+) -> dict[str, Any]:
     pool: asyncpg.Pool = request.app.state.db_pool
     media_service = request.app.state.media_service
     parser = ImportParser(pool)
+
+    content_type = request.headers.get("content-type", "").lower()
+    if "multipart/form-data" in content_type:
+        if not company_id:
+            raise HTTPException(status_code=400, detail="company_id query parameter is required")
+        if file is None:
+            raise HTTPException(status_code=400, detail="file field is required")
+
+        filename = file.filename or "archive.json"
+        file_bytes = await file.read()
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="uploaded file is empty")
+
+        result = await parser.parse_and_stage(
+            company_id=company_id,
+            file_bytes=file_bytes,
+            filename=filename,
+        )
+        return {
+            "staged_count": int(result["staged_count"]),
+            "skipped_count": int(result["skipped_count"]),
+            "import_id": result["import_id"],
+        }
+
+    try:
+        payload = ImportRequest.model_validate(await request.json())
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Invalid import payload") from exc
 
     try:
         url = await media_service.get_asset_url(payload.asset_id)
@@ -161,6 +193,7 @@ async def onboarding_import(payload: ImportRequest, request: Request) -> dict[st
     )
     return {
         "staged_count": int(result["staged_count"]),
+        "skipped_count": int(result["skipped_count"]),
         "import_id": result["import_id"],
     }
 

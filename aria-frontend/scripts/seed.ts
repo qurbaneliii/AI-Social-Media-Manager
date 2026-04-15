@@ -29,9 +29,9 @@ async function upsertUser(input: {
 
 async function main() {
   await upsertUser({
-    name: "Preview User",
-    email: "preview@ariaconsole.com",
-    password: "Preview123!",
+    name: "Starter User",
+    email: "starter@ariaconsole.com",
+    password: "Starter123!",
     role: "brand_manager"
   });
 
@@ -43,7 +43,7 @@ async function main() {
   });
 
   console.log("Seed users created");
-  console.log("Email: preview@ariaconsole.com | Password: Preview123!");
+  console.log("Email: starter@ariaconsole.com | Password: Starter123!");
   console.log("Email: admin@ariaconsole.com | Password: Admin123!");
 }
 

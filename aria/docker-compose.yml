@@ -2,8 +2,6 @@
 # purpose: Local-first infrastructure stack for API, worker, data stores, streaming, workflow, and observability.
 # dependencies: Docker Compose, Dockerfile, .env, prometheus.yml
 
-version: "3.9"
-
 networks:
   aria-net:
     driver: bridge
@@ -145,6 +143,6 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     ports:
-      - "3000:3000"
+      - "3100:3000"
     networks:
       - aria-net

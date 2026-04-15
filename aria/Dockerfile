@@ -2,10 +2,11 @@
 # purpose: Builds a single runtime image for FastAPI API and Celery worker.
 # dependencies: python:3.11-slim, requirements.txt, app source tree
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
 WORKDIR /app
 

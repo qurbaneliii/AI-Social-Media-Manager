@@ -3,12 +3,14 @@ import { z } from "zod";
 
 import {
   aiPlatformSchema,
+  fallbackAnalyze,
+  hasOpenAIKey,
   safeJsonParse,
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
-import { openai } from "@/lib/openai";
+import { getOpenAIClient } from "@/lib/openai";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const analyzeContentSchema = z.object({
   content: z.string().trim().min(1).max(6000),
@@ -31,6 +33,12 @@ const clampScore = (value: number): number => {
 export async function POST(request: Request) {
   try {
     const payload = analyzeContentSchema.parse(await request.json());
+
+    if (!hasOpenAIKey()) {
+      return NextResponse.json(fallbackAnalyze(payload.content), { status: 200 });
+    }
+
+    const openai = getOpenAIClient();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

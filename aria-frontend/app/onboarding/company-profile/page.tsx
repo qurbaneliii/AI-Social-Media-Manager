@@ -11,8 +11,6 @@ import { toast } from "sonner";
 import { ONBOARDING_PASS_THRESHOLD, POSTING_FREQUENCY_LIMITS } from "@/config/constants";
 import { submitCompanyProfile } from "@/lib/api";
 import { setClientCompanyId } from "@/lib/client-session";
-import { IS_STATIC } from "@/lib/isStatic";
-import { mockCompanyProfile } from "@/lib/mockData";
 import { navigateTo } from "@/lib/navigate";
 import { CompanyProfileSchema } from "@/lib/zod-schemas";
 import { useCompanyStore } from "@/stores/useCompanyStore";
@@ -23,6 +21,29 @@ import { TagInput } from "@/components/ui/TagInput";
 const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"];
 const ctaTypes: CTAType[] = ["learn_more", "book_demo", "buy_now", "download", "comment", "share"];
 
+const DEFAULT_PROFILE = {
+  company_name: "Local Company",
+  industry_vertical: "technology",
+  target_market: {
+    regions: ["US", "CA"],
+    segments: ["B2B", "SMB"],
+    persona_summary: "Marketing managers and founders"
+  },
+  tone_of_voice_descriptors: ["clear", "professional", "confident"],
+  posting_frequency_goal: {
+    instagram: 3,
+    linkedin: 3,
+    facebook: 2,
+    x: 5,
+    tiktok: 2,
+    pinterest: 2
+  },
+  primary_cta_types: ["learn_more", "book_demo", "download"] as CTAType[],
+  brand_color_hex_codes: ["#0EA5E9", "#0F172A", "#14B8A6"],
+  approved_vocabulary_list: ["automation", "consistency", "pipeline"],
+  banned_vocabulary_list: ["guaranteed", "overnight"]
+};
+
 export default function CompanyProfilePage() {
   const setCompanyId = useCompanyStore((s) => s.setCompanyId);
   const setProfile = useCompanyStore((s) => s.setProfile);
@@ -30,15 +51,15 @@ export default function CompanyProfilePage() {
   const form = useForm<CompanyProfileForm>({
     resolver: zodResolver(CompanyProfileSchema),
     defaultValues: {
-      company_name: mockCompanyProfile.name,
-      industry_vertical: mockCompanyProfile.industry,
+      company_name: DEFAULT_PROFILE.company_name,
+      industry_vertical: DEFAULT_PROFILE.industry_vertical,
       target_market: {
-        regions: [...mockCompanyProfile.targetMarket.regions],
-        segments: [...mockCompanyProfile.targetMarket.segments],
-        persona_summary: mockCompanyProfile.targetMarket.personaSummary
+        regions: [...DEFAULT_PROFILE.target_market.regions],
+        segments: [...DEFAULT_PROFILE.target_market.segments],
+        persona_summary: DEFAULT_PROFILE.target_market.persona_summary
       },
       brand_positioning_statement: "AI-powered social workflow automation for modern teams.",
-      tone_of_voice_descriptors: [...mockCompanyProfile.tone],
+      tone_of_voice_descriptors: [...DEFAULT_PROFILE.tone_of_voice_descriptors],
       competitor_list: [],
       platform_presence: {
         instagram: true,
@@ -49,17 +70,12 @@ export default function CompanyProfilePage() {
         pinterest: false
       },
       posting_frequency_goal: {
-        instagram: mockCompanyProfile.postingFrequency.instagram,
-        linkedin: mockCompanyProfile.postingFrequency.linkedin,
-        facebook: 2,
-        x: mockCompanyProfile.postingFrequency.twitter,
-        tiktok: 2,
-        pinterest: 2
+        ...DEFAULT_PROFILE.posting_frequency_goal
       },
-      primary_cta_types: [...mockCompanyProfile.ctaTypes],
-      brand_color_hex_codes: [...mockCompanyProfile.brandColors],
-      approved_vocabulary_list: [...mockCompanyProfile.approvedVocabulary],
-      banned_vocabulary_list: [...mockCompanyProfile.bannedVocabulary],
+      primary_cta_types: [...DEFAULT_PROFILE.primary_cta_types],
+      brand_color_hex_codes: [...DEFAULT_PROFILE.brand_color_hex_codes],
+      approved_vocabulary_list: [...DEFAULT_PROFILE.approved_vocabulary_list],
+      banned_vocabulary_list: [...DEFAULT_PROFILE.banned_vocabulary_list],
       logo_file: null,
       sample_post_images: []
     }
@@ -82,16 +98,6 @@ export default function CompanyProfilePage() {
   const values = form.watch();
 
   const handleSubmit = async (payload: CompanyProfileForm) => {
-    if (IS_STATIC) {
-      const companyId = "preview-company";
-      setProfile(payload);
-      setCompanyId(companyId);
-      setClientCompanyId(companyId);
-      toast.success("Profile saved (preview mode)");
-      navigateTo("/onboarding/brand-assets");
-      return;
-    }
-
     mutation.mutate(payload);
   };
 

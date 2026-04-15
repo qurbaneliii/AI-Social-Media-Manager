@@ -4,9 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
-const isStatic = process.env.NEXT_PUBLIC_IS_STATIC === "true";
-
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const roleSchema = z.enum(["agency_admin", "brand_manager", "content_creator", "analyst"]);
 
@@ -18,10 +16,6 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (isStatic) {
-    return NextResponse.json({ error: "Authentication requires a live server." }, { status: 503 });
-  }
-
   try {
     const payload = registerSchema.parse(await request.json());
     const existing = await prisma.user.findUnique({ where: { email: payload.email } });

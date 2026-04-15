@@ -1,7 +1,13 @@
 "use client";
 
-import FullDashboardUI from "@/components/dashboard/FullDashboardUI";
+import { useEffect } from "react";
+
+import { navigateTo } from "@/lib/navigate";
 
 export default function AnalyticsDashboardPage() {
-  return <FullDashboardUI title="Analytics Dashboard" subtitle="Cross-platform metrics and insight snapshots in preview mode." />;
+  useEffect(() => {
+    navigateTo("/analytics");
+  }, []);
+
+  return <main className="mx-auto max-w-4xl px-4 py-10 text-sm text-slate-600">Redirecting to analytics...</main>;
 }

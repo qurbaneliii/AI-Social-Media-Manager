@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { toOpenAIErrorResponse } from "@/app/api/ai/_lib";
-import { openai } from "@/lib/openai";
+import { fallbackImprove, hasOpenAIKey, toOpenAIErrorResponse } from "@/app/api/ai/_lib";
+import { getOpenAIClient } from "@/lib/openai";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const improveContentSchema = z.object({
   content: z.string().trim().min(1).max(6000),
@@ -14,6 +14,14 @@ const improveContentSchema = z.object({
 export async function POST(request: Request) {
   try {
     const payload = improveContentSchema.parse(await request.json());
+
+    if (!hasOpenAIKey()) {
+      return NextResponse.json(fallbackImprove(payload.content, payload.instruction), {
+        status: 200
+      });
+    }
+
+    const openai = getOpenAIClient();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

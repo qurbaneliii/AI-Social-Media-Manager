@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { generateContentSchema, generatePlatformContent, toOpenAIErrorResponse } from "@/app/api/ai/_lib";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {

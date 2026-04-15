@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { openai } from "@/lib/openai";
+import { getOpenAIClient } from "@/lib/openai";
 
 export const aiPlatformSchema = z.enum([
   "linkedin",
@@ -23,6 +23,8 @@ export const ctaTypeSchema = z.enum([
 ]);
 
 export type AIPlatform = z.infer<typeof aiPlatformSchema>;
+
+export const hasOpenAIKey = (): boolean => Boolean(process.env.OPENAI_API_KEY);
 
 const PLATFORM_CHAR_LIMITS: Record<AIPlatform, number> = {
   linkedin: 3000,
@@ -140,7 +142,14 @@ export const toOpenAIErrorResponse = (error: unknown, fallbackMessage: string): 
 };
 
 export const generatePlatformContent = async (input: GenerateContentInput): Promise<string> => {
+  if (!hasOpenAIKey()) {
+    const fallback = `${input.topic} | ${input.platform} | tone=${input.tone} | cta=${input.ctaType}`;
+    const maxCharacters = PLATFORM_CHAR_LIMITS[input.platform];
+    return fallback.slice(0, maxCharacters).trim();
+  }
+
   const systemPrompt = buildSystemPrompt(input);
+  const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -192,3 +201,48 @@ export const generatePlatformContent = async (input: GenerateContentInput): Prom
 
   return content;
 };
+
+export const fallbackAnalyze = (content: string) => {
+  const length = content.trim().length;
+  const engagement = Math.max(45, Math.min(95, Math.round(55 + length / 20)));
+  return {
+    scores: {
+      engagement,
+      clarity: 72,
+      cta_strength: 68
+    },
+    suggestions: [
+      "Open with a stronger first sentence.",
+      "Keep one clear CTA at the end.",
+      "Trim repeated phrases for readability."
+    ]
+  };
+};
+
+export const fallbackHashtags = (content: string) => {
+  const words = content
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 5)
+    .slice(0, 8)
+    .map((w) => w.replace(/[^a-z0-9]/g, ""));
+  const unique = Array.from(new Set(words));
+  return {
+    hashtags: unique.length ? unique : ["socialmedia", "contentstrategy", "marketing"]
+  };
+};
+
+export const fallbackTopics = (industry: string) => ({
+  topics: [
+    `${industry} trend update`,
+    `${industry} common mistakes to avoid`,
+    `${industry} campaign lessons learned`,
+    `${industry} audience engagement ideas`,
+    `${industry} practical playbook`
+  ]
+});
+
+export const fallbackImprove = (content: string, instruction: string) => ({
+  improved: `${content}\n\n[Improvement applied: ${instruction}]`
+});
