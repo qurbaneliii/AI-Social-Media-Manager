@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getBasePath } from "@/lib/navigate";
+import { AUTH_PREVIEW_MESSAGE, PREVIEW_COMPANY_ID } from "@/lib/mockData";
+import { navigateTo } from "@/lib/navigate";
 import { getRoleRedirectPath } from "@/lib/role-routing";
 import type { UserRole } from "@/types";
 
@@ -12,8 +13,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPreviewModeNotice, setShowPreviewModeNotice] = useState(false);
 
   const [registered, setRegistered] = useState(false);
+  const canSubmit = email.trim().length > 3 && password.length >= 8;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -27,6 +30,25 @@ export default function LoginPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setShowPreviewModeNotice(false);
+
+    if (email === "preview@ariaconsole.com" &&
+        password === "Preview123!") {
+      localStorage.setItem("user", JSON.stringify({
+        id: "preview-user-001",
+        name: "Preview User",
+        email: "preview@ariaconsole.com",
+        role: "brand_manager"
+      }));
+      localStorage.setItem("token", "preview-token-static-mode");
+      localStorage.setItem("aria_token", "preview-token-static-mode");
+      sessionStorage.setItem("aria_token", "preview-token-static-mode");
+      localStorage.setItem("aria_role", "brand_manager");
+      localStorage.setItem("aria_company_id", PREVIEW_COMPANY_ID);
+      localStorage.setItem("isPreview", "true");
+      navigateTo("/overview");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -38,9 +60,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim(), password })
       });
 
-      let data: { token?: string; user?: { role?: UserRole }; error?: string } = {};
+      let data: {
+        token?: string;
+        user?: { id?: string; email?: string; name?: string | null; role?: UserRole };
+        error?: string;
+      } = {};
       try {
-        data = (await response.json()) as { token?: string; user?: { role?: UserRole }; error?: string };
+        data = (await response.json()) as {
+          token?: string;
+          user?: { id?: string; email?: string; name?: string | null; role?: UserRole };
+          error?: string;
+        };
       } catch {
         data = {};
       }
@@ -64,12 +94,30 @@ export default function LoginPage() {
       }
 
       const role = data.user.role;
-      window.location.href = `${getBasePath()}${getRoleRedirectPath(role)}`;
+      navigateTo(getRoleRedirectPath(role));
     } catch {
       setError("Connection failed. Please try again.");
+      setShowPreviewModeNotice(true);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePreviewLogin = () => {
+    const previewUser = {
+      id: "preview-user-001",
+      name: "Preview User",
+      email: "preview@ariaconsole.com",
+      role: "brand_manager"
+    };
+    localStorage.setItem("user", JSON.stringify(previewUser));
+    localStorage.setItem("token", "preview-token-static-mode");
+    localStorage.setItem("aria_token", "preview-token-static-mode");
+    sessionStorage.setItem("aria_token", "preview-token-static-mode");
+    localStorage.setItem("aria_role", "brand_manager");
+    localStorage.setItem("aria_company_id", PREVIEW_COMPANY_ID);
+    localStorage.setItem("isPreview", "true");
+    navigateTo("/overview");
   };
 
   return (
@@ -95,6 +143,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            <p className="text-xs text-slate-500">Use the same account role you registered with.</p>
           </label>
 
           <label className="block space-y-1 text-sm text-slate-700">
@@ -106,12 +155,27 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {password.length > 0 && password.length < 8 ? <p className="text-xs text-amber-700">Password should be at least 8 characters.</p> : null}
           </label>
 
           {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
-          <button className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60" type="submit" disabled={isSubmitting}>
+          {showPreviewModeNotice ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{AUTH_PREVIEW_MESSAGE}</p> : null}
+
+          <button
+            className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            type="submit"
+            disabled={isSubmitting || !canSubmit}
+          >
             {isSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+
+          <button
+            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+            type="button"
+            onClick={handlePreviewLogin}
+          >
+            Continue as Preview User
           </button>
 
           <p className="text-sm text-slate-600">

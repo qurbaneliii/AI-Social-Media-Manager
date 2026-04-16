@@ -1,19 +1,25 @@
-const RAW_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const BASE_PATH = RAW_BASE_PATH.endsWith("/")
-  ? RAW_BASE_PATH.slice(0, -1)
-  : RAW_BASE_PATH;
+const STATIC_BASE_PATH = "/AI-Social-Media-Manager";
 
-const withBasePath = (path: string): string => {
-  if (!path.startsWith("/")) {
-    path = `/${path}`;
+const resolveBasePath = () => {
+  if (process.env.NEXT_PUBLIC_IS_STATIC === "true") {
+    return STATIC_BASE_PATH;
   }
-  return `${BASE_PATH}${path}`;
+
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname;
+    if (path === STATIC_BASE_PATH || path.startsWith(`${STATIC_BASE_PATH}/`)) {
+      return STATIC_BASE_PATH;
+    }
+  }
+
+  return "";
 };
 
 export const navigateTo = (path: string) => {
   if (typeof window !== "undefined") {
-    window.location.href = withBasePath(path);
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    window.location.href = `${resolveBasePath()}${normalizedPath}`;
   }
 };
 
-export const getBasePath = () => BASE_PATH;
+export const getBasePath = () => resolveBasePath();

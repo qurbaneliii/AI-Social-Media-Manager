@@ -22,7 +22,7 @@ export const CompanyProfileSchema: z.ZodType<CompanyProfileForm> = z.object({
   }),
   brand_positioning_statement: z.string().min(30).max(500),
   tone_of_voice_descriptors: z.array(z.string().min(1)).min(3).max(20),
-  competitor_list: z.array(z.string().min(1)).min(1).max(20),
+  competitor_list: z.array(z.string().min(1)).max(20),
   platform_presence: z.object({
     instagram: z.boolean(),
     linkedin: z.boolean(),

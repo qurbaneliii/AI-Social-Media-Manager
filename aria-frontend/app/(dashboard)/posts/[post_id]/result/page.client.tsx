@@ -8,6 +8,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { AudienceConfidenceBadge } from "@/components/audience/AudienceConfidenceBadge";
 import { HashtagTierDisplay } from "@/components/hashtags/HashtagTierDisplay";
 import { LLMProviderBadge } from "@/components/posts/LLMProviderBadge";
@@ -23,7 +25,7 @@ import { navigateTo } from "@/lib/navigate";
 import { usePostStore } from "@/stores/usePostStore";
 import { useSchedulerStore } from "@/stores/useSchedulerStore";
 import { useUIStore } from "@/stores/useUIStore";
-import type { Platform } from "@/types";
+import type { GeneratePostForm, Platform } from "@/types";
 
 const tabs = ["variants", "hashtags", "audience", "timing", "seo", "quality"] as const;
 
@@ -39,6 +41,7 @@ export default function PostResultPageClient() {
   const estimate = usePostStore((s) => s.estimatedReadySeconds);
   const selectedWindows = useSchedulerStore((s) => s.selectedWindows);
   const selectWindow = useSchedulerStore((s) => s.selectWindow);
+  const setApprovalMode = useSchedulerStore((s) => s.setApprovalMode);
 
   const activeTab = useUIStore((s) => s.activePostResultTab);
   const setTab = useUIStore((s) => s.setPostResultTab);
@@ -49,6 +52,9 @@ export default function PostResultPageClient() {
   usePostResult(postId);
 
   const [secondsLeft, setSecondsLeft] = useState(estimate ?? 0);
+  const [isEditingVariant, setIsEditingVariant] = useState(false);
+  const [editedText, setEditedText] = useState("");
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [seoDraft, setSeoDraft] = useState<{
     meta_title: string;
     meta_description: string;
@@ -81,24 +87,53 @@ export default function PostResultPageClient() {
   const variantsForPlatform = (generatedPackage?.variants ?? []).filter((v) => v.platform === activePlatformTab);
   const selected = variantsForPlatform.find((v) => v.variant_id === selectedVariant[activePlatformTab ?? ""]);
   const chosenVariant = selected ?? variantsForPlatform[0];
+  const effectiveVariantText = isEditingVariant ? editedText : chosenVariant?.text ?? "";
+
+  const getRetryPayload = (): GeneratePostForm | null => {
+    const { company_id, post_intent, core_message, target_platforms, urgency_level } = draftForm;
+    if (!company_id || !post_intent || !core_message || !target_platforms?.length || !urgency_level) {
+      return null;
+    }
+
+    return {
+      company_id,
+      post_intent,
+      core_message,
+      target_platforms,
+      campaign_tag: draftForm.campaign_tag,
+      attached_media_id: draftForm.attached_media_id,
+      manual_keywords: draftForm.manual_keywords,
+      urgency_level,
+      requested_publish_at: draftForm.requested_publish_at
+    };
+  };
 
   useEffect(() => {
     if (!generatedPackage) return;
     setSeoDraft(generatedPackage.seo_metadata);
   }, [generatedPackage]);
 
+  useEffect(() => {
+    setEditedText(chosenVariant?.text ?? "");
+    setIsEditingVariant(false);
+  }, [chosenVariant?.text, chosenVariant?.variant_id]);
+
   if (generationStatus === "failed") {
     return (
       <main className="space-y-4 rounded-2xl border bg-white p-6">
         <h1 className="text-2xl font-semibold text-slate-900">Generation failed</h1>
-        <p className="text-sm text-slate-600">No content package could be generated for this request.</p>
+        <p className="text-sm text-slate-600">No content package could be generated for this request. You can retry with adjusted messaging.</p>
         <button
           type="button"
           disabled={generateMutation.isPending}
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
           onClick={async () => {
-            if (!draftForm.company_id) return;
-            const res = await generateMutation.mutateAsync(draftForm as any);
+            const retryPayload = getRetryPayload();
+            if (!retryPayload) {
+              toast.error("Missing draft payload for regeneration");
+              return;
+            }
+            const res = await generateMutation.mutateAsync(retryPayload);
             navigateTo(`/posts/${res.post_id}/result`);
           }}
         >
@@ -110,11 +145,19 @@ export default function PostResultPageClient() {
 
   if (generationStatus === "generating" || !generatedPackage) {
     return (
-      <main className="rounded-2xl border bg-white p-6">
+      <main className="space-y-4 rounded-2xl border bg-white p-6">
         <h1 className="text-2xl font-semibold text-slate-900">Generating your content package</h1>
-        <p className="mt-2 text-sm text-slate-600">Polling every 3 seconds. Estimated time left: {secondsLeft}s</p>
-        <div className="mt-4 h-2 w-full rounded-full bg-slate-200">
+        <p className="text-sm text-slate-600">Polling every 3 seconds. Estimated time left: {secondsLeft}s</p>
+        <div className="h-2 w-full rounded-full bg-slate-200">
           <div className="h-2 rounded-full bg-teal-600 transition-all" style={{ width: `${Math.max(5, 100 - secondsLeft)}%` }} />
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <SkeletonBlock className="h-4 w-40 rounded" />
+          <SkeletonBlock className="h-4 w-full rounded" />
+          <SkeletonBlock className="h-4 w-[94%] rounded" />
+          <SkeletonBlock className="h-4 w-[85%] rounded" />
+          <p className="text-xs text-slate-500">Preparing variants, hashtags, timing windows, and quality scores.</p>
         </div>
       </main>
     );
@@ -127,14 +170,14 @@ export default function PostResultPageClient() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={!chosenVariant?.text}
+            disabled={!effectiveVariantText}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
             onClick={async () => {
-              if (!chosenVariant?.text) {
+              if (!effectiveVariantText) {
                 return;
               }
               try {
-                await navigator.clipboard.writeText(chosenVariant.text);
+                await navigator.clipboard.writeText(effectiveVariantText);
                 toast.success("Copied generated content");
               } catch {
                 toast.error("Could not copy content");
@@ -146,15 +189,37 @@ export default function PostResultPageClient() {
 
           <button
             type="button"
+            disabled={!chosenVariant}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
+            onClick={() => {
+              if (!chosenVariant) {
+                return;
+              }
+
+              if (isEditingVariant) {
+                setIsEditingVariant(false);
+                toast.success("Draft edits applied locally");
+              } else {
+                setEditedText(chosenVariant.text);
+                setIsEditingVariant(true);
+              }
+            }}
+          >
+            {isEditingVariant ? "Save edits" : "Edit selected content"}
+          </button>
+
+          <button
+            type="button"
             disabled={generateMutation.isPending || !draftForm.company_id}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
             onClick={async () => {
-              if (!draftForm.company_id) {
+              const retryPayload = getRetryPayload();
+              if (!retryPayload) {
                 toast.error("Missing draft payload for regeneration");
                 return;
               }
 
-              const regenerated = await generateMutation.mutateAsync(draftForm as any);
+              const regenerated = await generateMutation.mutateAsync(retryPayload);
               navigateTo(`/posts/${regenerated.post_id}/result`);
             }}
           >
@@ -164,6 +229,14 @@ export default function PostResultPageClient() {
           <Link href={`/posts/${postId}/schedule`} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white">
             Continue to schedule
           </Link>
+
+          <button
+            type="button"
+            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white"
+            onClick={() => setShowPublishConfirm(true)}
+          >
+            Publish now
+          </button>
         </div>
       </header>
 
@@ -229,7 +302,15 @@ export default function PostResultPageClient() {
           {chosenVariant && activePlatformTab ? (
             <PlatformPreviewCard
               platform={activePlatformTab}
-              variant={chosenVariant}
+              variant={
+                isEditingVariant
+                  ? {
+                      ...chosenVariant,
+                      text: editedText,
+                      char_count: editedText.length
+                    }
+                  : chosenVariant
+              }
               imageUrl={null}
               hashtags={[
                 ...generatedPackage.hashtag_set.broad,
@@ -342,6 +423,20 @@ export default function PostResultPageClient() {
           )}
         </section>
       ) : null}
+
+      <ConfirmDialog
+        open={showPublishConfirm}
+        title="Publish immediately?"
+        description="This sets approval mode to auto and takes you to scheduling for immediate queueing."
+        confirmLabel="Continue"
+        tone="neutral"
+        onCancel={() => setShowPublishConfirm(false)}
+        onConfirm={() => {
+          setApprovalMode("auto");
+          setShowPublishConfirm(false);
+          navigateTo(`/posts/${postId}/schedule`);
+        }}
+      />
     </main>
   );
 }

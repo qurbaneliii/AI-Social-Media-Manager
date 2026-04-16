@@ -12,8 +12,6 @@ class Settings(BaseSettings):
     redis_url: str = Field(..., alias="REDIS_URL")
     s3_bucket: str = Field(..., alias="S3_BUCKET")
     llm_proxy_url: str = Field(..., alias="LLM_PROXY_URL")
-    llm_provider_timeout_seconds: float = Field(45.0, alias="LLM_PROVIDER_TIMEOUT_SECONDS")
-    llm_provider_max_retries: int = Field(2, alias="LLM_PROVIDER_MAX_RETRIES")
     service_name: str = Field(..., alias="SERVICE_NAME")
     service_version: str = Field(..., alias="SERVICE_VERSION")
     otlp_endpoint: str = Field(..., alias="OTLP_ENDPOINT")

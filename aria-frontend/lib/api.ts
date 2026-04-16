@@ -5,13 +5,18 @@
 import type {
   CompanyProfileForm,
   GeneratePostForm,
+  GeneratedPackage,
   ImportResponse,
   OnboardingStatus,
+  Platform,
   PostResult,
   PresignResponse,
   ScheduleRequest,
-  ScheduleResponse
+  ScheduleResponse,
+  ScheduleStatus
 } from "@/types";
+import { IS_STATIC } from "@/lib/isStatic";
+import { PREVIEW_COMPANY_ID, PREVIEW_MODE_MESSAGE, mockGeneratedContent } from "@/lib/mockData";
 
 export interface ApiErrorPayload {
   code: string;
@@ -19,7 +24,6 @@ export interface ApiErrorPayload {
   trace_id?: string;
   retryable?: boolean;
   details?: unknown;
-  detail?: unknown;
 }
 
 export class ApiError extends Error {
@@ -38,6 +42,30 @@ export class ApiError extends Error {
   }
 }
 
+export interface ScheduleDetail {
+  id: string;
+  status: ScheduleStatus;
+  platform?: Platform;
+  run_at_utc?: string;
+  next_retry_at?: string | null;
+  retry_at?: string | null;
+  retry_count?: number;
+  max_retries?: number;
+  target?: {
+    platform?: Platform;
+    run_at_utc?: string;
+  };
+  error_code?: string | null;
+  error_message?: string | null;
+}
+
+export interface AuditLogItem {
+  actor?: string;
+  action?: string;
+  resource_type?: string;
+  created_at?: string;
+}
+
 const API_BASE_RAW = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 const API_BASE = API_BASE_RAW.replace(/\/$/, "");
 
@@ -53,10 +81,6 @@ const resolveApiBase = (): string => {
     }
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:8000";
-  }
-
   throw new ApiError({
     code: "API_BASE_URL_MISSING",
     message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
@@ -70,11 +94,128 @@ const resolveApiBase = (): string => {
 
 const toApiUrl = (url: string): string => `${resolveApiBase()}${url}`;
 
+const previewPostId = "preview-post-id";
+
+const previewGeneratedPackage: GeneratedPackage = {
+  variants: [
+    {
+      variant_id: "preview-linkedin",
+      platform: "linkedin",
+      text: mockGeneratedContent.linkedin,
+      char_count: mockGeneratedContent.linkedin.length,
+      provider_used: "preview",
+      cached: true,
+      scores: {
+        engagement_predicted: 74,
+        tone_match: 81,
+        cta_presence: 77,
+        keyword_inclusion: 72,
+        platform_compliance: 90,
+        total: 79
+      }
+    },
+    {
+      variant_id: "preview-x",
+      platform: "x",
+      text: mockGeneratedContent.twitter,
+      char_count: mockGeneratedContent.twitter.length,
+      provider_used: "preview",
+      cached: true,
+      scores: {
+        engagement_predicted: 69,
+        tone_match: 79,
+        cta_presence: 71,
+        keyword_inclusion: 70,
+        platform_compliance: 94,
+        total: 76
+      }
+    }
+  ],
+  selected_variant_id: "preview-linkedin",
+  hashtag_set: {
+    broad: [
+      { tag: "AriaConsole", score: 0.91 },
+      { tag: "SocialMedia", score: 0.87 }
+    ],
+    niche: [
+      { tag: "ContentPipeline", score: 0.74 },
+      { tag: "CampaignOps", score: 0.7 }
+    ],
+    micro: [{ tag: "PreviewMode", score: 0.63 }]
+  },
+  audience_definition: {
+    primary_demographic: {
+      age_range: "25-44",
+      gender_split: { female: 48, male: 47, non_binary: 5 },
+      locations: ["US", "GB"]
+    },
+    psychographic_profile: {
+      interests: ["social media", "growth"],
+      values: ["clarity", "speed"],
+      pain_points: ["inconsistent posting"]
+    },
+    platform_segments: {
+      facebook_custom_audience: { include_rules: [], exclude_rules: [] },
+      linkedin_audience_attributes: { job_titles: ["Marketing Manager"], industries: ["SaaS"], seniority: ["Manager"] },
+      x_interest_clusters: ["marketing"],
+      tiktok_interest_categories: ["business"]
+    },
+    natural_language_summary: "Preview audience summary for ARIA CONSOLE.",
+    confidence: 0.71
+  },
+  posting_schedule_recommendation: [
+    {
+      platform: "linkedin",
+      windows: [
+        {
+          start_local: new Date().toISOString(),
+          end_local: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          rank: 1,
+          confidence: 0.78,
+          reason_codes: ["industry_baseline"]
+        }
+      ]
+    }
+  ],
+  seo_metadata: {
+    meta_title: "ARIA Console Preview",
+    meta_description: "Preview mode content metadata.",
+    alt_text: "Preview image alt text",
+    keywords: ["aria", "preview"]
+  },
+  content_quality_score: {
+    overall: 78,
+    subscores: {
+      engagement_prediction: 76,
+      tone_match: 80,
+      platform_compliance: 88,
+      keyword_coverage: 72,
+      cta_strength: 74
+    }
+  }
+};
+
+const previewPostResult: PostResult = {
+  post_id: previewPostId,
+  status: "generated",
+  generated_package_json: previewGeneratedPackage
+};
+
 const getTokenFromSession = (): string | null => {
   if (typeof window === "undefined") {
     return null;
   }
   return sessionStorage.getItem("aria_token") ?? localStorage.getItem("aria_token");
+};
+
+const isPreviewMode = (): boolean => {
+  if (IS_STATIC) {
+    return true;
+  }
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return localStorage.getItem("isPreview") === "true";
 };
 
 const getJsonHeaders = (): HeadersInit => {
@@ -92,20 +233,24 @@ const parseError = async (response: Response): Promise<ApiError> => {
   } catch {
     payload = {};
   }
-
-  const detail = payload.detail;
-  const detailMessage = typeof detail === "string" ? detail : undefined;
-
   return new ApiError({
     code: payload.code ?? `HTTP_${response.status}`,
-    message: payload.message ?? detailMessage ?? `Request failed with status ${response.status}`,
+    message: payload.message ?? `Request failed with status ${response.status}`,
     trace_id: payload.trace_id,
     retryable: payload.retryable ?? response.status >= 500,
-    details: payload.details ?? (detailMessage ? undefined : detail)
+    details: payload.details
   });
 };
 
 const requestJson = async <T>(url: string, init: RequestInit): Promise<T> => {
+  if (isPreviewMode()) {
+    throw new ApiError({
+      code: "PREVIEW_MODE_ONLY",
+      message: PREVIEW_MODE_MESSAGE,
+      retryable: false
+    });
+  }
+
   const response = await fetch(toApiUrl(url), {
     ...init,
     headers: {
@@ -126,6 +271,14 @@ const requestJson = async <T>(url: string, init: RequestInit): Promise<T> => {
 export const submitCompanyProfile = async (
   data: CompanyProfileForm
 ): Promise<{ company_id: string; profile_version: number; status: string }> => {
+  if (isPreviewMode()) {
+    return {
+      company_id: PREVIEW_COMPANY_ID,
+      profile_version: 1,
+      status: "preview"
+    };
+  }
+
   return requestJson("/v1/onboarding/company-profile", {
     method: "POST",
     body: JSON.stringify(data)
@@ -137,6 +290,10 @@ export const updateVocabulary = async (
   approved_vocabulary_list: string[],
   banned_vocabulary_list: string[]
 ): Promise<void> => {
+  if (isPreviewMode()) {
+    return;
+  }
+
   await requestJson<void>("/v1/onboarding/vocabulary", {
     method: "POST",
     body: JSON.stringify({
@@ -148,6 +305,14 @@ export const updateVocabulary = async (
 };
 
 export const importPostArchive = async (company_id: string, file: File): Promise<ImportResponse> => {
+  if (isPreviewMode()) {
+    return {
+      staged_count: 0,
+      skipped_count: 0,
+      import_id: "preview-import"
+    };
+  }
+
   const token = getTokenFromSession();
   const form = new FormData();
   form.append("file", file);
@@ -165,6 +330,10 @@ export const importPostArchive = async (company_id: string, file: File): Promise
 };
 
 export const triggerQualityCheck = async (company_id: string): Promise<{ task_id: string }> => {
+  if (isPreviewMode()) {
+    return { task_id: "preview-task-id" };
+  }
+
   return requestJson("/v1/onboarding/quality-check", {
     method: "POST",
     body: JSON.stringify({ company_id })
@@ -172,6 +341,15 @@ export const triggerQualityCheck = async (company_id: string): Promise<{ task_id
 };
 
 export const getOnboardingStatus = async (company_id: string): Promise<OnboardingStatus> => {
+  if (isPreviewMode()) {
+    return {
+      step: 11,
+      score: 85,
+      status: "preview_ready",
+      remediation: []
+    };
+  }
+
   return requestJson(`/v1/onboarding/status/${company_id}`, {
     method: "GET"
   });
@@ -182,6 +360,14 @@ export const presignUpload = async (
   filename: string,
   content_type: string
 ): Promise<PresignResponse> => {
+  if (isPreviewMode()) {
+    throw new ApiError({
+      code: "PREVIEW_MODE_ONLY",
+      message: PREVIEW_MODE_MESSAGE,
+      retryable: false
+    });
+  }
+
   return requestJson("/v1/media/presign", {
     method: "POST",
     body: JSON.stringify({ company_id, filename, content_type })
@@ -189,6 +375,10 @@ export const presignUpload = async (
 };
 
 export const confirmUpload = async (asset_id: string): Promise<void> => {
+  if (isPreviewMode()) {
+    return;
+  }
+
   await requestJson<void>(`/v1/media/confirm/${asset_id}`, {
     method: "POST"
   });
@@ -199,6 +389,14 @@ export const uploadToPresignedUrl = async (
   file: File,
   onProgress: (pct: number) => void
 ): Promise<void> => {
+  if (isPreviewMode()) {
+    throw new ApiError({
+      code: "PREVIEW_MODE_ONLY",
+      message: PREVIEW_MODE_MESSAGE,
+      retryable: false
+    });
+  }
+
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url, true);
@@ -224,44 +422,38 @@ export const uploadToPresignedUrl = async (
 export const generatePost = async (
   data: GeneratePostForm
 ): Promise<{ post_id: string; status: "generating" | "generated"; estimated_ready_seconds: number }> => {
+  if (isPreviewMode()) {
+    return {
+      post_id: previewPostId,
+      status: "generated",
+      estimated_ready_seconds: 1
+    };
+  }
+
   return requestJson("/v1/posts/generate", {
     method: "POST",
     body: JSON.stringify(data)
   });
 };
 
-export interface SaveDraftRequest {
-  company_id: string;
-  platform: "linkedin" | "twitter" | "instagram" | "facebook" | "x" | "tiktok" | "pinterest";
-  content: string;
-  topic?: string;
-  tone?: string;
-  cta?: string;
-  intent?: string;
-  campaign_tag?: string;
-}
-
-export interface SaveDraftResponse {
-  post_id: string;
-  status: "draft";
-  platform: string;
-  created_at: string;
-}
-
-export const saveDraftPost = async (data: SaveDraftRequest): Promise<SaveDraftResponse> => {
-  return requestJson("/v1/posts/drafts", {
-    method: "POST",
-    body: JSON.stringify(data)
-  });
-};
-
 export const getPostResult = async (post_id: string): Promise<PostResult> => {
+  if (isPreviewMode()) {
+    return {
+      ...previewPostResult,
+      post_id
+    };
+  }
+
   return requestJson(`/v1/posts/${post_id}`, {
     method: "GET"
   });
 };
 
 export const getCompanyPosts = async (company_id: string, limit: number, offset: number): Promise<PostResult[]> => {
+  if (isPreviewMode()) {
+    return [previewPostResult];
+  }
+
   const payload = await requestJson<{ items?: PostResult[] } | PostResult[]>(
     `/v1/companies/${company_id}/posts?limit=${limit}&offset=${offset}`,
     { method: "GET" }
@@ -270,19 +462,39 @@ export const getCompanyPosts = async (company_id: string, limit: number, offset:
 };
 
 export const createSchedule = async (data: ScheduleRequest): Promise<ScheduleResponse> => {
+  if (isPreviewMode()) {
+    return {
+      schedule_ids: ["preview-schedule-id"],
+      status: "queued"
+    };
+  }
+
   return requestJson("/v1/schedules", {
     method: "POST",
     body: JSON.stringify(data)
   });
 };
 
-export const getSchedule = async (schedule_id: string): Promise<any> => {
+export const getSchedule = async (schedule_id: string): Promise<ScheduleDetail> => {
+  if (isPreviewMode()) {
+    return {
+      id: schedule_id,
+      status: "queued",
+      platform: "linkedin",
+      run_at_utc: new Date().toISOString()
+    };
+  }
+
   return requestJson(`/v1/schedules/${schedule_id}`, {
     method: "GET"
   });
 };
 
 export const approveSchedule = async (schedule_id: string): Promise<void> => {
+  if (isPreviewMode()) {
+    return;
+  }
+
   await requestJson<void>(`/v1/schedules/${schedule_id}/approve`, {
     method: "POST"
   });
@@ -293,9 +505,21 @@ export const getOAuthConnectUrl = (platform: string, company_id: string): string
   return toApiUrl(`/v1/oauth/connect?${params.toString()}`);
 };
 
-export const getAuditLog = async (company_id: string, limit: number, offset: number): Promise<any[]> => {
-  const payload = await requestJson<{ items?: any[] } | any[]>(`/audit/${company_id}?limit=${limit}&offset=${offset}`, {
-    method: "GET"
-  });
+export const getAuditLog = async (company_id: string, limit: number, offset: number): Promise<AuditLogItem[]> => {
+  if (isPreviewMode()) {
+    return [
+      {
+        actor: "preview-user",
+        action: "preview_view",
+        resource_type: "dashboard",
+        created_at: new Date().toISOString()
+      }
+    ];
+  }
+
+  const payload = await requestJson<{ items?: AuditLogItem[] } | AuditLogItem[]>(
+    `/audit/${company_id}?limit=${limit}&offset=${offset}`,
+    { method: "GET" }
+  );
   return Array.isArray(payload) ? payload : payload.items ?? [];
 };

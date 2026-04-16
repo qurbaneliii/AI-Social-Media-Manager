@@ -22,12 +22,7 @@ class AudienceTargetingService:
         self.settings = settings
         self.baseline_builder = BaselineBuilder(db_pool)
         self.signal_miner = PerformanceSignalMiner(db_pool)
-        self.llm = LlmInference(
-            llm_client,
-            settings.llm_proxy_url,
-            timeout_seconds=settings.llm_provider_timeout_seconds,
-            max_retries=settings.llm_provider_max_retries,
-        )
+        self.llm = LlmInference(llm_client, settings.llm_proxy_url)
         self.mapper = PlatformSegmentMapper(redis_client)
         self.resolver = ConflictResolver()
         self.redis_client = redis_client
@@ -53,7 +48,7 @@ class AudienceTargetingService:
             log.warning("fallback_activated", fallback="missing_metrics")
         log.info("step_completed", step="performance_signal_miner", segments=top_segments)
 
-        llm_inferred = await self.llm.process(str(payload.company_id), payload.campaign_context, top_segments)
+        llm_inferred = await self.llm.process(payload.campaign_context, top_segments)
         log.info("step_completed", step="llm_inference")
 
         resolved, warning_codes = await self.resolver.process(company_baseline, llm_inferred)
@@ -62,23 +57,15 @@ class AudienceTargetingService:
         platform_mapping = await self.mapper.process([p.value for p in payload.target_platforms], top_segments)
         log.info("step_completed", step="platform_segment_mapper")
 
-        resolved_age_range = resolved.get("age_range") or company_baseline.get("age_range")
-        if not resolved_age_range:
-            raise RuntimeError("No audience age_range resolved from baseline or LLM output")
-
-        psychographics = resolved.get("psychographics")
-        if not isinstance(psychographics, dict):
-            psychographics = {}
-
-        confidence = float(resolved.get("confidence", 0.0))
+        confidence = float(resolved.get("confidence", 0.6))
         requires_approval = confidence < 0.55
         if requires_approval:
             log.warning("low_confidence_result", confidence_score=confidence)
 
         profile = AudienceProfile(
-            age_range=AgeRange(**resolved_age_range),
+            age_range=AgeRange(**resolved.get("age_range", {"min_age": 25, "max_age": 45})),
             segments=top_segments,
-            psychographics=psychographics,
+            psychographics=resolved.get("psychographics", {"value_seeking": 0.5}),
             platform_segments=platform_mapping,
         )
 

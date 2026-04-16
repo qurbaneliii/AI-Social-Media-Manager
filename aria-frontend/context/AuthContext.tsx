@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { mockUser, PREVIEW_COMPANY_ID } from "@/lib/mockData";
 import { getBasePath } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
@@ -31,6 +32,7 @@ interface AuthContextValue {
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  continueAsPreviewUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -54,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const stored = localStorage.getItem("user");
-    const token = localStorage.getItem("token") ?? localStorage.getItem("aria_token");
+    const token = localStorage.getItem("token");
     if (!stored || !token) {
       return null;
     }
@@ -79,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       const stored = localStorage.getItem("user");
-      const token = localStorage.getItem("token") ?? localStorage.getItem("aria_token");
+      const token = localStorage.getItem("token");
       if (stored && token) {
         setUser(JSON.parse(stored) as AuthUser);
       }
@@ -109,9 +111,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(payload.user));
       localStorage.setItem("token", payload.token);
-      localStorage.setItem("aria_token", payload.token);
-      sessionStorage.setItem("aria_token", payload.token);
-      localStorage.setItem("aria_role", payload.user.role);
     }
     setUser(payload.user);
     return payload.user;
@@ -133,20 +132,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = useCallback(() => {
     if (typeof window !== "undefined") {
-      void fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include"
-      }).catch(() => {
-        // Best effort cookie cleanup.
-      });
       localStorage.removeItem("user");
       localStorage.removeItem("token");
-      localStorage.removeItem("aria_token");
-      localStorage.removeItem("aria_role");
-      localStorage.removeItem("aria_company_id");
+      localStorage.removeItem("isPreview");
       window.location.href = `${getBasePath()}/login`;
     }
     setUser(null);
+  }, []);
+
+  const continueAsPreviewUser = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(mockUser));
+    localStorage.setItem("token", "preview-token-static-mode");
+    localStorage.setItem("isPreview", "true");
+    localStorage.setItem("aria_company_id", PREVIEW_COMPANY_ID);
+    localStorage.setItem("aria_role", mockUser.role);
+    setUser(mockUser);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -157,9 +161,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login,
       register,
       logout,
-      refreshUser
+      refreshUser,
+      continueAsPreviewUser
     }),
-    [isLoading, login, logout, refreshUser, register, user]
+    [continueAsPreviewUser, isLoading, login, logout, refreshUser, register, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

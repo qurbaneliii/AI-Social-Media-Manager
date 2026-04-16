@@ -3,6 +3,8 @@
 
 "use client";
 
+import Image from "next/image";
+
 import { PLATFORM_CHAR_LIMITS } from "@/config/constants";
 import type { Platform, PostVariant } from "@/types";
 
@@ -30,7 +32,9 @@ export const PlatformPreviewCard = ({ platform, variant, charLimit, imageUrl, ha
         </span>
       </header>
 
-      {imageUrl ? <img src={imageUrl} alt="Preview" className="mb-3 h-40 w-full rounded-lg object-cover" /> : null}
+      {imageUrl ? (
+        <Image src={imageUrl} alt="Preview" width={1200} height={800} className="mb-3 h-40 w-full rounded-lg object-cover" />
+      ) : null}
 
       <p className="whitespace-pre-wrap text-sm text-slate-800">{variant.text}</p>
 

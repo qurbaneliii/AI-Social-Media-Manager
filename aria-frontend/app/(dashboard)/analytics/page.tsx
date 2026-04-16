@@ -7,11 +7,24 @@ import { Fragment, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { AudienceConfidenceBadge } from "@/components/audience/AudienceConfidenceBadge";
+import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
+import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { QUALITY_SCORE_THRESHOLDS } from "@/config/constants";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useCompanyPosts } from "@/hooks/useCompanyPosts";
 import { getClientSession } from "@/lib/client-session";
 import { useCompanyStore } from "@/stores/useCompanyStore";
+import type { Platform, PostResult } from "@/types";
+
+type PostAnalyticsRow = PostResult & {
+  posting_timestamp?: string;
+  created_at?: string;
+  performance_metrics?: Record<string, number>;
+  platform_metrics?: Partial<Record<Platform, { engagement_rate?: number }>>;
+  platform_targets?: Platform[];
+};
+
+const toAnalyticsRow = (post: PostResult): PostAnalyticsRow => post as PostAnalyticsRow;
 
 export default function AnalyticsPage() {
   const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
@@ -19,22 +32,27 @@ export default function AnalyticsPage() {
   const auditQuery = useAuditLog(companyId, 0, 50);
 
   const postsQuery = useCompanyPosts(companyId, 0);
+  const isLoading = auditQuery.isLoading || postsQuery.isLoading;
 
   const qualityData = useMemo(() => {
-    return (postsQuery.data ?? []).map((post) => ({
+    return (postsQuery.data ?? []).map((post) => {
+      const row = toAnalyticsRow(post);
+      return {
       id: post.post_id.slice(0, 8),
       quality: post.generated_package_json?.content_quality_score?.overall ?? 0,
-      posting_timestamp: (post as any).posting_timestamp ?? (post as any).created_at ?? post.post_id
-    }));
+      posting_timestamp: row.posting_timestamp ?? row.created_at ?? post.post_id
+      };
+    });
   }, [postsQuery.data]);
 
   const engagementSeries = useMemo(() => {
     const rows = postsQuery.data ?? [];
     return rows.map((post) => {
-      const metrics = ((post as any).performance_metrics ?? {}) as Record<string, number>;
-      const perPlatform = ((post as any).platform_metrics ?? {}) as Record<string, { engagement_rate?: number }>;
+      const row = toAnalyticsRow(post);
+      const metrics = row.performance_metrics ?? {};
+      const perPlatform = row.platform_metrics ?? {};
       return {
-        posting_timestamp: (post as any).posting_timestamp ?? (post as any).created_at ?? post.post_id,
+        posting_timestamp: row.posting_timestamp ?? row.created_at ?? post.post_id,
         engagement_rate: metrics.engagement_rate ?? 0,
         instagram: perPlatform.instagram?.engagement_rate ?? 0,
         linkedin: perPlatform.linkedin?.engagement_rate ?? 0,
@@ -61,7 +79,8 @@ export default function AnalyticsPage() {
       }
     >();
     rows.forEach((post) => {
-      const timestamp = (post as any).posting_timestamp ?? (post as any).created_at;
+      const row = toAnalyticsRow(post);
+      const timestamp = row.posting_timestamp ?? row.created_at;
       if (!timestamp) return;
       const date = new Date(timestamp);
       const weekKey = `${date.getUTCFullYear()}-W${Math.ceil((date.getUTCDate() + 6 - date.getUTCDay()) / 7)}`;
@@ -78,10 +97,10 @@ export default function AnalyticsPage() {
       }
       const entry = bucket.get(weekKey);
       if (!entry) return;
-      const targets = ((post as any).platform_targets ?? []) as string[];
+      const targets = row.platform_targets ?? [];
       targets.forEach((target) => {
-        if (target in entry) {
-          (entry[target as keyof typeof entry] as number) += 1;
+        if (target === "instagram" || target === "linkedin" || target === "facebook" || target === "x" || target === "tiktok" || target === "pinterest") {
+          entry[target] += 1;
         }
       });
     });
@@ -109,15 +128,15 @@ export default function AnalyticsPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <article className="rounded-xl border p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Posts analyzed</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{postsQuery.data?.length ?? 0}</p>
+          {isLoading ? <SkeletonBlock className="mt-2 h-8 w-16 rounded" /> : <p className="mt-2 text-2xl font-semibold text-slate-900">{postsQuery.data?.length ?? 0}</p>}
         </article>
         <article className="rounded-xl border p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Audit events</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{auditQuery.data?.length ?? 0}</p>
+          {isLoading ? <SkeletonBlock className="mt-2 h-8 w-16 rounded" /> : <p className="mt-2 text-2xl font-semibold text-slate-900">{auditQuery.data?.length ?? 0}</p>}
         </article>
         <article className="rounded-xl border p-4">
           <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Audience confidence</p>
-          <AudienceConfidenceBadge confidence={avgConfidence} />
+          {isLoading ? <SkeletonBlock className="h-7 w-28 rounded-full" /> : <AudienceConfidenceBadge confidence={avgConfidence} />}
         </article>
       </section>
 
@@ -129,8 +148,18 @@ export default function AnalyticsPage() {
 
       <section className="rounded-xl border p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Quality score by post</h2>
-        {qualityData.length === 0 ? (
-          <p className="text-sm text-slate-600">No generated posts yet.</p>
+        {isLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-48 rounded" />
+            <SkeletonBlock className="h-64 w-full rounded" />
+          </div>
+        ) : qualityData.length === 0 ? (
+          <EmptyStateCard
+            title="No generated posts yet"
+            description="Generate at least one post package to visualize quality trends."
+            actionLabel="Generate content"
+            actionHref="/posts/new"
+          />
         ) : (
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -148,8 +177,16 @@ export default function AnalyticsPage() {
 
       <section className="rounded-xl border p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Engagement rate over time per platform</h2>
-        {engagementSeries.length === 0 ? (
-          <p className="text-sm text-slate-600">No engagement metrics available.</p>
+        {isLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-56 rounded" />
+            <SkeletonBlock className="h-64 w-full rounded" />
+          </div>
+        ) : engagementSeries.length === 0 ? (
+          <EmptyStateCard
+            title="No engagement metrics available"
+            description="Once posts are published and metrics are synced, trend lines will appear here."
+          />
         ) : (
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -173,8 +210,16 @@ export default function AnalyticsPage() {
 
       <section className="rounded-xl border p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Posting frequency by platform per week</h2>
-        {frequencySeries.length === 0 ? (
-          <p className="text-sm text-slate-600">No posting frequency data available.</p>
+        {isLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-56 rounded" />
+            <SkeletonBlock className="h-64 w-full rounded" />
+          </div>
+        ) : frequencySeries.length === 0 ? (
+          <EmptyStateCard
+            title="No posting frequency data available"
+            description="Schedule and publish content to unlock weekly platform distribution charts."
+          />
         ) : (
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -198,7 +243,12 @@ export default function AnalyticsPage() {
 
       <section className="rounded-xl border p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Posts and performance metrics</h2>
-        {postsQuery.data?.length ? (
+        {isLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-60 rounded" />
+            <SkeletonBlock className="h-52 w-full rounded" />
+          </div>
+        ) : postsQuery.data?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -212,8 +262,8 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {postsQuery.data.map((post) => {
-                  const row = post as any;
-                  const metrics = (row.performance_metrics ?? {}) as Record<string, number>;
+                  const row = toAnalyticsRow(post);
+                  const metrics = row.performance_metrics ?? {};
                   return (
                     <Fragment key={post.post_id}>
                       <tr className="border-b">
@@ -237,13 +287,23 @@ export default function AnalyticsPage() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-600">No posts available.</p>
+          <EmptyStateCard
+            title="No posts available"
+            description="Create your first generated package to inspect quality and performance side by side."
+            actionLabel="Create post"
+            actionHref="/posts/new"
+          />
         )}
       </section>
 
       <section className="rounded-xl border p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Audit log</h2>
-        {auditQuery.data?.length ? (
+        {isLoading ? (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-32 rounded" />
+            <SkeletonBlock className="h-52 w-full rounded" />
+          </div>
+        ) : auditQuery.data?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -255,7 +315,7 @@ export default function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {auditQuery.data.map((item: any, idx: number) => (
+                {auditQuery.data.map((item, idx) => (
                   <tr key={`${item.created_at ?? idx}-${idx}`} className="border-b">
                     <td className="px-2 py-2">{item.actor ?? "system"}</td>
                     <td className="px-2 py-2">{item.action ?? "-"}</td>
@@ -267,7 +327,10 @@ export default function AnalyticsPage() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-600">No audit events found.</p>
+          <EmptyStateCard
+            title="No audit events found"
+            description="Audit events appear after scheduling, approvals, and publish lifecycle actions."
+          />
         )}
       </section>
 

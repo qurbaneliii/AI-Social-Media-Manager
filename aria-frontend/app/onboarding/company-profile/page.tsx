@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { ONBOARDING_PASS_THRESHOLD, POSTING_FREQUENCY_LIMITS } from "@/config/constants";
 import { submitCompanyProfile } from "@/lib/api";
 import { setClientCompanyId } from "@/lib/client-session";
+import { IS_STATIC } from "@/lib/isStatic";
+import { mockCompanyProfile, PREVIEW_COMPANY_ID } from "@/lib/mockData";
 import { navigateTo } from "@/lib/navigate";
 import { CompanyProfileSchema } from "@/lib/zod-schemas";
 import { useCompanyStore } from "@/stores/useCompanyStore";
@@ -20,29 +22,7 @@ import { TagInput } from "@/components/ui/TagInput";
 
 const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"];
 const ctaTypes: CTAType[] = ["learn_more", "book_demo", "buy_now", "download", "comment", "share"];
-
-const DEFAULT_PROFILE = {
-  company_name: "Local Company",
-  industry_vertical: "technology",
-  target_market: {
-    regions: ["US", "CA"],
-    segments: ["B2B", "SMB"],
-    persona_summary: "Marketing managers and founders"
-  },
-  tone_of_voice_descriptors: ["clear", "professional", "confident"],
-  posting_frequency_goal: {
-    instagram: 3,
-    linkedin: 3,
-    facebook: 2,
-    x: 5,
-    tiktok: 2,
-    pinterest: 2
-  },
-  primary_cta_types: ["learn_more", "book_demo", "download"] as CTAType[],
-  brand_color_hex_codes: ["#0EA5E9", "#0F172A", "#14B8A6"],
-  approved_vocabulary_list: ["automation", "consistency", "pipeline"],
-  banned_vocabulary_list: ["guaranteed", "overnight"]
-};
+const marketSegments = ["B2B", "B2C", "D2C"] as const;
 
 export default function CompanyProfilePage() {
   const setCompanyId = useCompanyStore((s) => s.setCompanyId);
@@ -50,16 +30,17 @@ export default function CompanyProfilePage() {
 
   const form = useForm<CompanyProfileForm>({
     resolver: zodResolver(CompanyProfileSchema),
+    mode: "onChange",
     defaultValues: {
-      company_name: DEFAULT_PROFILE.company_name,
-      industry_vertical: DEFAULT_PROFILE.industry_vertical,
+      company_name: mockCompanyProfile.name,
+      industry_vertical: mockCompanyProfile.industry,
       target_market: {
-        regions: [...DEFAULT_PROFILE.target_market.regions],
-        segments: [...DEFAULT_PROFILE.target_market.segments],
-        persona_summary: DEFAULT_PROFILE.target_market.persona_summary
+        regions: [...mockCompanyProfile.targetMarket.regions],
+        segments: [...mockCompanyProfile.targetMarket.segments],
+        persona_summary: mockCompanyProfile.targetMarket.personaSummary
       },
       brand_positioning_statement: "AI-powered social workflow automation for modern teams.",
-      tone_of_voice_descriptors: [...DEFAULT_PROFILE.tone_of_voice_descriptors],
+      tone_of_voice_descriptors: [...mockCompanyProfile.tone],
       competitor_list: [],
       platform_presence: {
         instagram: true,
@@ -70,12 +51,17 @@ export default function CompanyProfilePage() {
         pinterest: false
       },
       posting_frequency_goal: {
-        ...DEFAULT_PROFILE.posting_frequency_goal
+        instagram: mockCompanyProfile.postingFrequency.instagram,
+        linkedin: mockCompanyProfile.postingFrequency.linkedin,
+        facebook: 2,
+        x: mockCompanyProfile.postingFrequency.twitter,
+        tiktok: 2,
+        pinterest: 2
       },
-      primary_cta_types: [...DEFAULT_PROFILE.primary_cta_types],
-      brand_color_hex_codes: [...DEFAULT_PROFILE.brand_color_hex_codes],
-      approved_vocabulary_list: [...DEFAULT_PROFILE.approved_vocabulary_list],
-      banned_vocabulary_list: [...DEFAULT_PROFILE.banned_vocabulary_list],
+      primary_cta_types: [...mockCompanyProfile.ctaTypes],
+      brand_color_hex_codes: [...mockCompanyProfile.brandColors],
+      approved_vocabulary_list: [...mockCompanyProfile.approvedVocabulary],
+      banned_vocabulary_list: [...mockCompanyProfile.bannedVocabulary],
       logo_file: null,
       sample_post_images: []
     }
@@ -96,8 +82,20 @@ export default function CompanyProfilePage() {
   });
 
   const values = form.watch();
+  const positioningLength = values.brand_positioning_statement?.length ?? 0;
+  const personaLength = values.target_market.persona_summary?.length ?? 0;
 
   const handleSubmit = async (payload: CompanyProfileForm) => {
+    if (IS_STATIC) {
+      const companyId = PREVIEW_COMPANY_ID;
+      setProfile(payload);
+      setCompanyId(companyId);
+      setClientCompanyId(companyId);
+      toast.success("Profile saved (preview mode)");
+      navigateTo("/onboarding/brand-assets");
+      return;
+    }
+
     mutation.mutate(payload);
   };
 
@@ -114,45 +112,115 @@ export default function CompanyProfilePage() {
         <header>
           <h1 className="text-2xl font-semibold text-slate-900">Company profile</h1>
           <p className="text-sm text-slate-600">Define strategic brand context for model grounding.</p>
+          <p className="mt-1 text-xs text-slate-500">All sections below are required for reliable generation quality.</p>
         </header>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-1 text-sm">
             <span className="text-slate-700">Company name</span>
             <input {...form.register("company_name")} className="w-full rounded-lg border px-3 py-2" />
+            {form.formState.errors.company_name?.message ? <p className="text-xs text-red-600">{form.formState.errors.company_name.message}</p> : null}
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-slate-700">Industry vertical</span>
             <input {...form.register("industry_vertical")} className="w-full rounded-lg border px-3 py-2" />
+            {form.formState.errors.industry_vertical?.message ? <p className="text-xs text-red-600">{form.formState.errors.industry_vertical.message}</p> : null}
           </label>
         </div>
 
         <label className="block space-y-1 text-sm">
-          <span className="text-slate-700">Persona summary</span>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-700">Persona summary</span>
+            <span className="text-xs text-slate-500">{personaLength}/300</span>
+          </div>
           <textarea {...form.register("target_market.persona_summary")} rows={3} className="w-full rounded-lg border px-3 py-2" />
+          {form.formState.errors.target_market?.persona_summary?.message ? (
+            <p className="text-xs text-red-600">{form.formState.errors.target_market.persona_summary.message}</p>
+          ) : null}
         </label>
 
         <Controller
           control={form.control}
           name="target_market.regions"
-          render={({ field }) => <TagInput label="Target regions (ISO codes)" values={field.value} onChange={field.onChange} placeholder="US, CA, GB" />}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <TagInput
+                label="Target regions (ISO codes)"
+                values={field.value}
+                onChange={(nextValues) => field.onChange(nextValues.map((item) => item.trim().toUpperCase()).filter(Boolean))}
+                placeholder="US, CA, GB"
+              />
+              {form.formState.errors.target_market?.regions?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.target_market.regions.message}</p>
+              ) : null}
+            </div>
+          )}
         />
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-700">Target segments</p>
+          <div className="flex flex-wrap gap-2">
+            {marketSegments.map((segment) => {
+              const selected = values.target_market.segments.includes(segment);
+              return (
+                <button
+                  key={segment}
+                  type="button"
+                  onClick={() => {
+                    const current = form.getValues("target_market.segments") ?? [];
+                    form.setValue(
+                      "target_market.segments",
+                      selected ? current.filter((item) => item !== segment) : [...current, segment],
+                      { shouldValidate: true }
+                    );
+                  }}
+                  className={`rounded-full px-3 py-1 text-xs ${selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+                >
+                  {segment}
+                </button>
+              );
+            })}
+          </div>
+          {form.formState.errors.target_market?.segments?.message ? (
+            <p className="text-xs text-red-600">{form.formState.errors.target_market.segments.message}</p>
+          ) : null}
+        </div>
 
         <Controller
           control={form.control}
           name="tone_of_voice_descriptors"
-          render={({ field }) => <TagInput label="Tone descriptors" values={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <TagInput label="Tone descriptors" values={field.value} onChange={field.onChange} />
+              {form.formState.errors.tone_of_voice_descriptors?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.tone_of_voice_descriptors.message}</p>
+              ) : null}
+            </div>
+          )}
         />
 
         <Controller
           control={form.control}
           name="competitor_list"
-          render={({ field }) => <TagInput label="Competitors" values={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <TagInput label="Competitors" values={field.value} onChange={field.onChange} placeholder="Optional" />
+              {form.formState.errors.competitor_list?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.competitor_list.message}</p>
+              ) : null}
+            </div>
+          )}
         />
 
         <label className="block space-y-1 text-sm">
-          <span className="text-slate-700">Brand positioning statement</span>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-700">Brand positioning statement</span>
+            <span className="text-xs text-slate-500">{positioningLength}/500</span>
+          </div>
           <textarea {...form.register("brand_positioning_statement")} rows={4} className="w-full rounded-lg border px-3 py-2" />
+          {form.formState.errors.brand_positioning_statement?.message ? (
+            <p className="text-xs text-red-600">{form.formState.errors.brand_positioning_statement.message}</p>
+          ) : null}
         </label>
 
         <div className="space-y-2">
@@ -214,6 +282,7 @@ export default function CompanyProfilePage() {
               );
             })}
           </div>
+          {form.formState.errors.primary_cta_types?.message ? <p className="text-xs text-red-600">{form.formState.errors.primary_cta_types.message}</p> : null}
         </div>
 
         <Controller
@@ -253,6 +322,9 @@ export default function CompanyProfilePage() {
                   Add color
                 </button>
               </div>
+              {form.formState.errors.brand_color_hex_codes?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.brand_color_hex_codes.message}</p>
+              ) : null}
             </div>
           )}
         />
@@ -260,20 +332,38 @@ export default function CompanyProfilePage() {
         <Controller
           control={form.control}
           name="approved_vocabulary_list"
-          render={({ field }) => <TagInput label="Approved vocabulary" values={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <TagInput label="Approved vocabulary" values={field.value} onChange={field.onChange} />
+              {form.formState.errors.approved_vocabulary_list?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.approved_vocabulary_list.message}</p>
+              ) : null}
+            </div>
+          )}
         />
 
         <Controller
           control={form.control}
           name="banned_vocabulary_list"
-          render={({ field }) => <TagInput label="Banned vocabulary" values={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <TagInput label="Banned vocabulary" values={field.value} onChange={field.onChange} />
+              {form.formState.errors.banned_vocabulary_list?.message ? (
+                <p className="text-xs text-red-600">{form.formState.errors.banned_vocabulary_list.message}</p>
+              ) : null}
+            </div>
+          )}
         />
 
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={mutation.isPending} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+          <button
+            type="submit"
+            disabled={mutation.isPending || !form.formState.isValid}
+            className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
             {mutation.isPending ? "Saving..." : "Save and continue"}
           </button>
-          {Object.keys(form.formState.errors).length > 0 ? <p className="text-sm text-red-600">Please resolve validation errors.</p> : null}
+          {!form.formState.isValid ? <p className="text-sm text-red-600">Please resolve validation errors.</p> : null}
         </div>
       </form>
     </main>

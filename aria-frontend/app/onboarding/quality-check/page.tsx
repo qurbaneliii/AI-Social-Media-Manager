@@ -29,10 +29,6 @@ export default function QualityCheckPage() {
     qualityCheck.mutate(companyId);
   }, [companyId, qualityCheck, triggeredOnMount]);
 
-  if (!companyId) {
-    return <div className="rounded-xl border bg-white p-6 text-sm text-red-700">Company ID is required. Return to sign in.</div>;
-  }
-
   const passed = (status?.score ?? 0) >= ONBOARDING_PASS_THRESHOLD && (status?.step ?? 0) >= 11;
   const activeCredentialCount = Object.values(credentials).filter((c) => c.status === "connected").length;
   const hasExpiredCredential = Object.values(credentials).some((c) => c.status === "expired");
@@ -57,6 +53,10 @@ export default function QualityCheckPage() {
       }
     ];
   }, [activeCredentialCount, hasExpiredCredential, profile, status?.step]);
+
+  if (!companyId) {
+    return <div className="rounded-xl border bg-white p-6 text-sm text-red-700">Company ID is required. Return to sign in.</div>;
+  }
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[300px_1fr]">
