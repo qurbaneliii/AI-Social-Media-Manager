@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -33,6 +34,19 @@ class GeneratePostRequest(BaseModel):
     requested_publish_at: str | None = None
 
 
+class SaveDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    company_id: str
+    platform: str
+    content: str = Field(min_length=3, max_length=5000)
+    intent: str = Field(default="engage", min_length=3, max_length=64)
+    campaign_tag: str | None = Field(default=None, max_length=100)
+    topic: str | None = Field(default=None, max_length=300)
+    tone: str | None = Field(default=None, max_length=120)
+    cta: str | None = Field(default=None, max_length=120)
+
+
 def _has_llm_provider_keys() -> bool:
     return any(
         os.getenv(name)
@@ -45,11 +59,79 @@ def _has_llm_provider_keys() -> bool:
     )
 
 
+def _normalize_platform(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "twitter":
+        return "x"
+
+    allowed = {"linkedin", "instagram", "facebook", "x", "tiktok", "pinterest"}
+    if normalized not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported platform '{value}'")
+    return normalized
+
+
 def _coerce_score_0_to_100(value: Any) -> float:
     score = float(value or 0.0)
     if score <= 1.0:
         return score * 100.0
     return score
+
+
+def _build_draft_generated_package(post_id: str, platform: str, content: str) -> dict[str, Any]:
+    variant_id = f"draft-{post_id}"
+    return {
+        "variants": [
+            {
+                "variant_id": variant_id,
+                "platform": platform,
+                "text": content,
+                "char_count": len(content),
+                "scores": {
+                    "engagement_predicted": 0.0,
+                    "tone_match": 0.0,
+                    "cta_presence": 0.0,
+                    "keyword_inclusion": 0.0,
+                    "platform_compliance": 0.0,
+                    "total": 0.0,
+                },
+            }
+        ],
+        "selected_variant_id": variant_id,
+        "hashtag_set": {"broad": [], "niche": [], "micro": []},
+        "audience_definition": {
+            "primary_demographic": {
+                "age_range": "unknown",
+                "gender_split": {"female": 0, "male": 0, "non_binary": 0},
+                "locations": [],
+            },
+            "psychographic_profile": {"interests": [], "values": [], "pain_points": []},
+            "platform_segments": {
+                "facebook_custom_audience": {"include_rules": [], "exclude_rules": []},
+                "linkedin_audience_attributes": {"job_titles": [], "industries": [], "seniority": []},
+                "x_interest_clusters": [],
+                "tiktok_interest_categories": [],
+            },
+            "natural_language_summary": "",
+            "confidence": 0.0,
+        },
+        "posting_schedule_recommendation": [],
+        "seo_metadata": {
+            "meta_title": "",
+            "meta_description": "",
+            "alt_text": "",
+            "keywords": [],
+        },
+        "content_quality_score": {
+            "overall": 0.0,
+            "subscores": {
+                "engagement_prediction": 0.0,
+                "tone_match": 0.0,
+                "platform_compliance": 0.0,
+                "keyword_coverage": 0.0,
+                "cta_strength": 0.0,
+            },
+        },
+    }
 
 
 def _build_generated_package(post: dict[str, Any], variants: list[dict[str, Any]]) -> dict[str, Any]:
@@ -167,6 +249,70 @@ async def generate_post(payload: GeneratePostRequest, request: Request) -> dict[
         "status": "generating",
         "estimated_ready_seconds": 15,
         "task_id": async_result.id,
+    }
+
+
+@router.post("/drafts")
+async def save_draft(payload: SaveDraftRequest, request: Request) -> dict[str, Any]:
+    pool: asyncpg.Pool = request.app.state.db_pool
+    posts = PostRepository(pool)
+
+    normalized_platform = _normalize_platform(payload.platform)
+    cleaned_content = payload.content.strip()
+    cleaned_intent = payload.intent.strip().lower() if payload.intent else "engage"
+    if not cleaned_intent:
+        cleaned_intent = "engage"
+
+    generated_package = _build_draft_generated_package(
+        post_id="placeholder",
+        platform=normalized_platform,
+        content=cleaned_content,
+    )
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await set_tenant(conn, payload.company_id)
+            post = await posts.create(
+                company_id=payload.company_id,
+                intent=cleaned_intent,
+                core_message=cleaned_content,
+                platform_targets=[normalized_platform],
+                created_by=None,
+                campaign_tag=payload.campaign_tag,
+                conn=conn,
+            )
+            post_id = str(post["post_id"])
+            generated_package = _build_draft_generated_package(
+                post_id=post_id,
+                platform=normalized_platform,
+                content=cleaned_content,
+            )
+            context_snapshot = {
+                "topic": payload.topic,
+                "tone": payload.tone,
+                "cta": payload.cta,
+                "source": "dashboard_ai_studio",
+            }
+            await conn.execute(
+                """
+                UPDATE posts
+                SET context_snapshot_json = $2::jsonb,
+                    generated_package_json = $3::jsonb,
+                    quality_score = $4,
+                    updated_at = now()
+                WHERE post_id = $1::uuid
+                """,
+                post_id,
+                json.dumps(context_snapshot),
+                json.dumps(generated_package),
+                0.0,
+            )
+
+    return {
+        "post_id": post_id,
+        "status": "draft",
+        "platform": normalized_platform,
+        "created_at": str(post.get("created_at")),
     }
 
 

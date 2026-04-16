@@ -1,13 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
-
-import { navigateTo } from "@/lib/navigate";
+import { AIGeneratorPanel } from "@/components/dashboard/AIGeneratorPanel";
+import { PostCard } from "@/components/dashboard/PostCard";
+import { useDashboard } from "@/hooks/useDashboard";
 
 export default function ContentDashboardPage() {
-  useEffect(() => {
-    navigateTo("/posts/new");
-  }, []);
+  const { posts } = useDashboard();
 
-  return <main className="mx-auto max-w-4xl px-4 py-10 text-sm text-slate-600">Redirecting to post studio...</main>;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1>Content Dashboard</h1>
+        <p className="text-sm text-[var(--text-secondary)]">Draft, iterate, and optimize social content with AI assistance.</p>
+      </div>
+
+      <AIGeneratorPanel />
+
+      <section className="space-y-3">
+        <h2>Drafts and Recent Posts</h2>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {posts.map((post) => (
+            <PostCard key={post.id} {...post} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }

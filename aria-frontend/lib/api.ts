@@ -230,6 +230,31 @@ export const generatePost = async (
   });
 };
 
+export interface SaveDraftRequest {
+  company_id: string;
+  platform: "linkedin" | "twitter" | "instagram" | "facebook" | "x" | "tiktok" | "pinterest";
+  content: string;
+  topic?: string;
+  tone?: string;
+  cta?: string;
+  intent?: string;
+  campaign_tag?: string;
+}
+
+export interface SaveDraftResponse {
+  post_id: string;
+  status: "draft";
+  platform: string;
+  created_at: string;
+}
+
+export const saveDraftPost = async (data: SaveDraftRequest): Promise<SaveDraftResponse> => {
+  return requestJson("/v1/posts/drafts", {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+};
+
 export const getPostResult = async (post_id: string): Promise<PostResult> => {
   return requestJson(`/v1/posts/${post_id}`, {
     method: "GET"
