@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
     redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
     temporal_client = await TemporalClient.connect(
         os.getenv("TEMPORAL_HOST", "localhost:7233"),
-        namespace=os.getenv("TEMPORAL_NAMESPACE", "aria"),
+        namespace=os.getenv("TEMPORAL_NAMESPACE", "default"),
     )
 
     s3_client = boto3.client(

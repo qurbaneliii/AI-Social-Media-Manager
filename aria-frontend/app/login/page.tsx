@@ -7,10 +7,6 @@ import { getBasePath } from "@/lib/navigate";
 import { getRoleRedirectPath } from "@/lib/role-routing";
 import type { UserRole } from "@/types";
 
-const DEFAULT_COMPANY_ID =
-  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID ??
-  "00000000-0000-0000-0000-000000000000";
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,7 +61,6 @@ export default function LoginPage() {
         localStorage.setItem("aria_token", data.token);
         sessionStorage.setItem("aria_token", data.token);
         localStorage.setItem("aria_role", data.user.role);
-        localStorage.setItem("aria_company_id", DEFAULT_COMPANY_ID);
       }
 
       const role = data.user.role;

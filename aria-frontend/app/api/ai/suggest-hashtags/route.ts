@@ -3,12 +3,10 @@ import { z } from "zod";
 
 import {
   aiPlatformSchema,
-  fallbackHashtags,
-  hasOpenAIKey,
-  safeJsonParse,
+  createChatCompletion,
+  parseJsonPayload,
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
-import { getOpenAIClient } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +23,7 @@ export async function POST(request: Request) {
   try {
     const payload = suggestHashtagsSchema.parse(await request.json());
 
-    if (!hasOpenAIKey()) {
-      return NextResponse.json(fallbackHashtags(payload.content), { status: 200 });
-    }
-
-    const openai = getOpenAIClient();
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const completion = await createChatCompletion({
       messages: [
         {
           role: "system",
@@ -49,12 +40,7 @@ export async function POST(request: Request) {
     });
 
     const raw = completion.choices[0]?.message?.content ?? "";
-    const parsed = safeJsonParse<unknown>(raw);
-    if (!parsed) {
-      throw new Error("OpenAI returned non-JSON hashtag payload");
-    }
-
-    const data = hashtagResponseSchema.parse(parsed);
+    const data = parseJsonPayload(raw, hashtagResponseSchema, "OpenAI returned non-JSON hashtag payload");
     const hashtags = Array.from(
       new Set(
         data.hashtags

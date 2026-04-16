@@ -28,7 +28,7 @@ from temporal.workflows.posting_workflow import (
 
 async def run_worker() -> None:
     host = os.getenv("TEMPORAL_HOST", "localhost:7233")
-    namespace = os.getenv("TEMPORAL_NAMESPACE", "aria")
+    namespace = os.getenv("TEMPORAL_NAMESPACE", "default")
     task_queue = os.getenv("TEMPORAL_TASK_QUEUE", "aria-main")
     client = await Client.connect(host, namespace=namespace)
 

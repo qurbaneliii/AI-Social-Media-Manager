@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import logging
 
 import asyncpg
 import httpx
@@ -17,6 +18,21 @@ from redis.asyncio import Redis
 from config import get_settings
 from exceptions import ModuleProcessingError, module_exception_handler
 from router import router
+
+
+logger = logging.getLogger(__name__)
+
+
+def load_nlp_model() -> object:
+    try:
+        return spacy.load("en_core_web_lg")
+    except OSError:
+        logger.warning("spacy_model_fallback preferred=%s fallback=%s", "en_core_web_lg", "en_core_web_sm")
+        try:
+            return spacy.load("en_core_web_sm")
+        except OSError:
+            logger.warning("spacy_model_fallback preferred=%s fallback=%s", "en_core_web_sm", "blank_en")
+            return spacy.blank("en")
 
 
 def configure_logging(level: str) -> None:
@@ -45,7 +61,7 @@ async def lifespan(app: FastAPI):
     app.state.vector_db_pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10)
     app.state.redis = Redis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
     app.state.llm_client = httpx.AsyncClient(timeout=30.0)
-    app.state.nlp_model = spacy.load("en_core_web_lg")
+    app.state.nlp_model = load_nlp_model()
 
     yield
 

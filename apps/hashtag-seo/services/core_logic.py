@@ -23,7 +23,12 @@ log = structlog.get_logger(__name__)
 class HashtagSeoService:
     def __init__(self, settings: Settings, llm_client: object, vector_db: object, redis_client: object) -> None:
         self.settings = settings
-        self.llm_gen = LlmCandidateGenerator(llm_client, settings.llm_proxy_url)
+        self.llm_gen = LlmCandidateGenerator(
+            llm_client,
+            settings.llm_proxy_url,
+            timeout_seconds=settings.llm_provider_timeout_seconds,
+            max_retries=settings.llm_provider_max_retries,
+        )
         self.vector = VectorRetriever(vector_db)
         self.merge = MergeDeduplicator()
         self.policy = PolicyFilter(redis_client)
@@ -34,7 +39,7 @@ class HashtagSeoService:
     async def run(self, payload: HashtagSeoInput) -> HashtagSeoOutput:
         """Execute full hashtag pipeline with deterministic ranking and quotas."""
         log.info("request_received", company_id=str(payload.company_id), platform=payload.target_platform.value)
-        llm_candidates = await self.llm_gen.process(payload.core_text, payload.keywords)
+        llm_candidates = await self.llm_gen.process(str(payload.company_id), payload.core_text, payload.keywords)
         log.info("step_completed", step="llm_candidate_generation", count=len(llm_candidates))
 
         probe_vector = np.ones(768, dtype=np.float32).tolist()

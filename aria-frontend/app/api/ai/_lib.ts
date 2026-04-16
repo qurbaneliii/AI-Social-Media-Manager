@@ -24,7 +24,24 @@ export const ctaTypeSchema = z.enum([
 
 export type AIPlatform = z.infer<typeof aiPlatformSchema>;
 
-export const hasOpenAIKey = (): boolean => Boolean(process.env.OPENAI_API_KEY);
+const parseIntegerEnv = (raw: string | undefined, fallback: number, minimum: number): number => {
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(minimum, parsed);
+};
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const OPENAI_TIMEOUT_MS = parseIntegerEnv(process.env.OPENAI_REQUEST_TIMEOUT_MS, 45000, 1000);
+const OPENAI_MAX_RETRIES = parseIntegerEnv(process.env.OPENAI_MAX_RETRIES, 2, 0);
+
+const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
 
 const PLATFORM_CHAR_LIMITS: Record<AIPlatform, number> = {
   linkedin: 3000,
@@ -49,6 +66,37 @@ export const generateContentSchema = z.object({
 
 export type GenerateContentInput = z.infer<typeof generateContentSchema>;
 
+const sleep = async (ms: number) => {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+const sanitizeText = (input: string, maxChars: number): string => {
+  return input
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxChars);
+};
+
+const sanitizeList = (items: string[], maxItemChars: number, maxItems: number): string[] => {
+  return items
+    .map((item) => sanitizeText(item, maxItemChars))
+    .filter((item) => item.length > 0)
+    .slice(0, maxItems);
+};
+
+const sanitizeCompanyProfile = (value: Record<string, unknown> | undefined): string => {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(value).slice(0, 5000);
+  } catch {
+    return "";
+  }
+};
+
 const stringifyList = (items: string[]): string => {
   if (!items.length) {
     return "none";
@@ -62,6 +110,13 @@ const includesBannedVocabulary = (content: string, bannedVocabulary: string[]): 
 };
 
 const buildSystemPrompt = (input: GenerateContentInput): string => {
+  const topic = sanitizeText(input.topic, 2000);
+  const tone = sanitizeText(input.tone, 300);
+  const approvedVocabulary = sanitizeList(input.approvedVocabulary, 120, 200);
+  const bannedVocabulary = sanitizeList(input.bannedVocabulary, 120, 200);
+  const brandColors = sanitizeList(input.brandColors, 40, 20);
+  const companyProfile = sanitizeCompanyProfile(input.companyProfile);
+
   const charLimit = PLATFORM_CHAR_LIMITS[input.platform];
   const postingFrequencyText =
     typeof input.postingFrequency === "number" ? `${input.postingFrequency} posts/week` : "not provided";
@@ -69,15 +124,16 @@ const buildSystemPrompt = (input: GenerateContentInput): string => {
   return [
     "You are ARIA CONSOLE, an expert social media copywriter.",
     `Write one post for ${input.platform}.`,
+    `Topic: ${topic}.`,
     `Hard max length: ${charLimit} characters. Never exceed this.`,
-    `Tone requirement: ${input.tone}.`,
+    `Tone requirement: ${tone}.`,
     `CTA requirement: end the post with a clear ${input.ctaType} call-to-action.`,
-    `Brand colors for context: ${stringifyList(input.brandColors)}.`,
+    `Brand colors for context: ${stringifyList(brandColors)}.`,
     `Posting frequency goal: ${postingFrequencyText}.`,
-    `Approved vocabulary (use where relevant): ${stringifyList(input.approvedVocabulary)}.`,
-    `Banned vocabulary (never use): ${stringifyList(input.bannedVocabulary)}.`,
+    `Approved vocabulary (use where relevant): ${stringifyList(approvedVocabulary)}.`,
+    `Banned vocabulary (never use): ${stringifyList(bannedVocabulary)}.`,
     "Output only the final post text without markdown fences or commentary.",
-    input.companyProfile ? `Company profile context: ${JSON.stringify(input.companyProfile)}` : ""
+    companyProfile ? `Company profile context: ${companyProfile}` : ""
   ]
     .filter(Boolean)
     .join("\n");
@@ -114,6 +170,15 @@ export const toOpenAIErrorResponse = (error: unknown, fallbackMessage: string): 
     );
   }
 
+  if (error instanceof Error && error.message.includes("OPENAI_API_KEY is not configured")) {
+    return NextResponse.json(
+      {
+        error: "OPENAI_API_KEY is not configured"
+      },
+      { status: 503 }
+    );
+  }
+
   if (error instanceof OpenAI.APIError) {
     const status = error.status ?? 500;
     return NextResponse.json(
@@ -141,23 +206,69 @@ export const toOpenAIErrorResponse = (error: unknown, fallbackMessage: string): 
   );
 };
 
-export const generatePlatformContent = async (input: GenerateContentInput): Promise<string> => {
-  if (!hasOpenAIKey()) {
-    const fallback = `${input.topic} | ${input.platform} | tone=${input.tone} | cta=${input.ctaType}`;
-    const maxCharacters = PLATFORM_CHAR_LIMITS[input.platform];
-    return fallback.slice(0, maxCharacters).trim();
+const shouldRetryOpenAI = (error: unknown): boolean => {
+  if (error instanceof OpenAI.APIError) {
+    return RETRYABLE_STATUS.has(error.status ?? 500);
   }
 
-  const systemPrompt = buildSystemPrompt(input);
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("timeout") || message.includes("network") || message.includes("econn") || message.includes("reset");
+  }
+
+  return false;
+};
+
+type ChatCreateParams = Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming, "model"> & {
+  model?: string;
+};
+
+export const createChatCompletion = async (
+  params: ChatCreateParams
+): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
   const openai = getOpenAIClient();
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const effectiveParams: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+    ...params,
+    model: params.model ?? OPENAI_MODEL
+  };
+
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await openai.chat.completions.create(effectiveParams, {
+        timeout: OPENAI_TIMEOUT_MS
+      });
+    } catch (error) {
+      if (attempt >= OPENAI_MAX_RETRIES || !shouldRetryOpenAI(error)) {
+        throw error;
+      }
+
+      const delay = Math.min(1200 * (2 ** attempt), 8000);
+      await sleep(delay);
+      attempt += 1;
+    }
+  }
+};
+
+export const parseJsonPayload = <T>(raw: string, schema: z.ZodType<T>, errorMessage: string): T => {
+  const parsed = safeJsonParse<unknown>(raw);
+  if (!parsed) {
+    throw new Error(errorMessage);
+  }
+
+  return schema.parse(parsed);
+};
+
+export const generatePlatformContent = async (input: GenerateContentInput): Promise<string> => {
+  const systemPrompt = buildSystemPrompt(input);
+
+  const response = await createChatCompletion({
     messages: [
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Topic: ${input.topic}\nWrite a platform-native post that strictly follows all constraints.`
+        content: `Topic: ${sanitizeText(input.topic, 2000)}\nWrite a platform-native post that strictly follows all constraints.`
       }
     ],
     max_tokens: 1000,
@@ -170,8 +281,7 @@ export const generatePlatformContent = async (input: GenerateContentInput): Prom
   }
 
   if (includesBannedVocabulary(content, input.bannedVocabulary)) {
-    const rewritten = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const rewritten = await createChatCompletion({
       messages: [
         {
           role: "system",
@@ -201,48 +311,3 @@ export const generatePlatformContent = async (input: GenerateContentInput): Prom
 
   return content;
 };
-
-export const fallbackAnalyze = (content: string) => {
-  const length = content.trim().length;
-  const engagement = Math.max(45, Math.min(95, Math.round(55 + length / 20)));
-  return {
-    scores: {
-      engagement,
-      clarity: 72,
-      cta_strength: 68
-    },
-    suggestions: [
-      "Open with a stronger first sentence.",
-      "Keep one clear CTA at the end.",
-      "Trim repeated phrases for readability."
-    ]
-  };
-};
-
-export const fallbackHashtags = (content: string) => {
-  const words = content
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length >= 5)
-    .slice(0, 8)
-    .map((w) => w.replace(/[^a-z0-9]/g, ""));
-  const unique = Array.from(new Set(words));
-  return {
-    hashtags: unique.length ? unique : ["socialmedia", "contentstrategy", "marketing"]
-  };
-};
-
-export const fallbackTopics = (industry: string) => ({
-  topics: [
-    `${industry} trend update`,
-    `${industry} common mistakes to avoid`,
-    `${industry} campaign lessons learned`,
-    `${industry} audience engagement ideas`,
-    `${industry} practical playbook`
-  ]
-});
-
-export const fallbackImprove = (content: string, instruction: string) => ({
-  improved: `${content}\n\n[Improvement applied: ${instruction}]`
-});

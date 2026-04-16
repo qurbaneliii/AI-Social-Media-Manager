@@ -19,6 +19,7 @@ export interface ApiErrorPayload {
   trace_id?: string;
   retryable?: boolean;
   details?: unknown;
+  detail?: unknown;
 }
 
 export class ApiError extends Error {
@@ -91,12 +92,16 @@ const parseError = async (response: Response): Promise<ApiError> => {
   } catch {
     payload = {};
   }
+
+  const detail = payload.detail;
+  const detailMessage = typeof detail === "string" ? detail : undefined;
+
   return new ApiError({
     code: payload.code ?? `HTTP_${response.status}`,
-    message: payload.message ?? `Request failed with status ${response.status}`,
+    message: payload.message ?? detailMessage ?? `Request failed with status ${response.status}`,
     trace_id: payload.trace_id,
     retryable: payload.retryable ?? response.status >= 500,
-    details: payload.details
+    details: payload.details ?? (detailMessage ? undefined : detail)
   });
 };
 

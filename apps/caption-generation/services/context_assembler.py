@@ -15,10 +15,8 @@ class ContextAssembler:
         return CaptionContext(
             post_intent=payload.post_intent.value,
             core_message=payload.core_message,
-            target_platform=platform,
-            tone_fingerprint=payload.tone_fingerprint,
-            visual_profile=payload.visual_profile,
-            hashtags=payload.hashtags,
-            audience_profile=payload.audience_profile,
-            time_windows=payload.ranked_windows,
+            platform=platform,
+            tone_fingerprint=payload.tone_fingerprint or {},
+            visual_profile=payload.visual_profile or {},
+            target_audience=payload.audience_profile or {},
         )

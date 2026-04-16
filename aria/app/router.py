@@ -112,6 +112,9 @@ class LLMRouter:
 
     async def _generate_with_provider(self, tenant_id: str, prompt: str, max_tokens: int) -> tuple[str, str]:
         """Generate response and return both content and provider name."""
+        if not self.providers:
+            raise ProviderError("router: no providers configured")
+
         tenant_sem = await self._get_tenant_semaphore(tenant_id)
 
         async with self.global_semaphore:

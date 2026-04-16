@@ -3,12 +3,10 @@ import { z } from "zod";
 
 import {
   aiPlatformSchema,
-  fallbackAnalyze,
-  hasOpenAIKey,
-  safeJsonParse,
+  createChatCompletion,
+  parseJsonPayload,
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
-import { getOpenAIClient } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +32,7 @@ export async function POST(request: Request) {
   try {
     const payload = analyzeContentSchema.parse(await request.json());
 
-    if (!hasOpenAIKey()) {
-      return NextResponse.json(fallbackAnalyze(payload.content), { status: 200 });
-    }
-
-    const openai = getOpenAIClient();
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const completion = await createChatCompletion({
       messages: [
         {
           role: "system",
@@ -58,12 +49,7 @@ export async function POST(request: Request) {
     });
 
     const raw = completion.choices[0]?.message?.content ?? "";
-    const parsed = safeJsonParse<unknown>(raw);
-    if (!parsed) {
-      throw new Error("OpenAI returned non-JSON analysis payload");
-    }
-
-    const analysis = analyzeResponseSchema.parse(parsed);
+    const analysis = parseJsonPayload(raw, analyzeResponseSchema, "OpenAI returned non-JSON analysis payload");
 
     return NextResponse.json(
       {

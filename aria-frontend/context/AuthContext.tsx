@@ -4,10 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { getBasePath } from "@/lib/navigate";
 import type { UserRole } from "@/types";
 
-const DEFAULT_COMPANY_ID =
-  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID ??
-  "00000000-0000-0000-0000-000000000000";
-
 interface AuthUser {
   id: string;
   email: string;
@@ -116,7 +112,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem("aria_token", payload.token);
       sessionStorage.setItem("aria_token", payload.token);
       localStorage.setItem("aria_role", payload.user.role);
-      localStorage.setItem("aria_company_id", DEFAULT_COMPANY_ID);
     }
     setUser(payload.user);
     return payload.user;

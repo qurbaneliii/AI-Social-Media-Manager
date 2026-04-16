@@ -35,31 +35,6 @@ import type { GeneratePostForm, Platform, PostIntent, UserRole } from "@/types";
 const platforms: Platform[] = ["instagram", "linkedin", "facebook", "x", "tiktok", "pinterest"];
 const intents: PostIntent[] = ["announce", "educate", "promote", "engage", "inspire", "crisis_response"];
 
-const DEFAULT_COMPANY_ID =
-  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID ??
-  "00000000-0000-0000-0000-000000000000";
-
-const FALLBACK_COMPANY_PROFILE = {
-  platforms: ["linkedin", "twitter", "instagram"] as AIPlatform[],
-  postingFrequency: {
-    linkedin: 3,
-    twitter: 5,
-    instagram: 3
-  },
-  ctaTypes: ["learn_more", "book_demo", "download"] as const,
-  brandColors: ["#0EA5E9", "#0F172A", "#14B8A6"],
-  approvedVocabulary: ["automation", "consistency", "pipeline"],
-  bannedVocabulary: ["guaranteed", "overnight"],
-  companyName: "Local Company",
-  industry: "technology",
-  targetMarket: {
-    regions: ["US"],
-    segments: ["B2B"],
-    personaSummary: "Marketing managers and founders"
-  },
-  tone: ["professional", "clear"]
-};
-
 const roleDefaultIntent: Record<UserRole, PostIntent> = {
   agency_admin: "promote",
   brand_manager: "announce",
@@ -81,8 +56,14 @@ const getFriendlyAiError = (error: unknown): string => {
   }
 
   const message = error.message.toLowerCase();
+  if (message.includes("openai_api_key is not configured")) {
+    return "AI is not configured yet. Set OPENAI_API_KEY in your environment.";
+  }
+  if (message.includes("no ai provider key configured")) {
+    return "No AI provider key configured. Add one provider key in your environment.";
+  }
   if (message.includes("quota") || message.includes("rate") || message.includes("temporarily") || message.includes("503")) {
-    return "OpenAI service is temporarily unavailable.";
+    return "AI service is temporarily unavailable.";
   }
 
   return "Failed to generate content. Please try again.";
@@ -91,8 +72,7 @@ const getFriendlyAiError = (error: unknown): string => {
 export default function NewPostPage() {
   const companyId =
     useCompanyStore((s) => s.companyId) ??
-    getClientSession().companyId ??
-    DEFAULT_COMPANY_ID;
+    getClientSession().companyId;
   const profile = useCompanyStore((s) => s.profile);
   const { user } = useAuth();
   const setDraftForm = usePostStore((s) => s.setDraftForm);
@@ -129,7 +109,7 @@ export default function NewPostPage() {
         targetMarket: profile.target_market,
         tone: profile.tone_of_voice_descriptors
       }
-    : FALLBACK_COMPANY_PROFILE;
+    : null;
 
   const form = useForm<GeneratePostForm>({
     resolver: zodResolver(GeneratePostSchema),
@@ -151,17 +131,17 @@ export default function NewPostPage() {
       return;
     }
 
-    const activePlatforms = profile
-      ? platforms.filter((platform) => profile.platform_presence[platform])
-      : FALLBACK_COMPANY_PROFILE.platforms.map((platform) => (platform === "twitter" ? "x" : platform as Platform));
-    if (activePlatforms.length > 0) {
-      form.setValue("target_platforms", activePlatforms, { shouldValidate: true });
-      setAiPlatform(toAIPlatform(activePlatforms[0]));
-    }
+    if (profile) {
+      const activePlatforms = platforms.filter((platform) => profile.platform_presence[platform]);
+      if (activePlatforms.length > 0) {
+        form.setValue("target_platforms", activePlatforms, { shouldValidate: true });
+        setAiPlatform(toAIPlatform(activePlatforms[0]));
+      }
 
-    const approved = profile?.approved_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.approvedVocabulary];
-    if (approved.length > 0) {
-      form.setValue("manual_keywords", approved.slice(0, 8), { shouldValidate: true });
+      const approved = profile.approved_vocabulary_list;
+      if (approved.length > 0) {
+        form.setValue("manual_keywords", approved.slice(0, 8), { shouldValidate: true });
+      }
     }
 
     if (user?.role) {
@@ -179,22 +159,23 @@ export default function NewPostPage() {
   const aiResult = improvedContent || generatedContent;
 
   const buildGeneratePayload = (platformOverride?: AIPlatform) => {
+    if (!profile || !resolvedCompanyProfile) {
+      return null;
+    }
+
     const resolvedPlatform = platformOverride ?? aiPlatform;
     const frontendPlatform = toPlatform(resolvedPlatform);
-    const topic =
-      form.getValues("core_message").trim() || `${profile?.company_name ?? FALLBACK_COMPANY_PROFILE.companyName} update`;
+    const topic = form.getValues("core_message").trim() || `${profile.company_name} update`;
 
     return {
       platform: resolvedPlatform,
       topic,
-      tone: profile ? profile.tone_of_voice_descriptors.join(", ") || "professional" : "professional",
-      ctaType: (profile?.primary_cta_types[0] ?? FALLBACK_COMPANY_PROFILE.ctaTypes[0]) as any,
-      brandColors: profile?.brand_color_hex_codes ?? [...FALLBACK_COMPANY_PROFILE.brandColors],
-      approvedVocabulary: profile?.approved_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.approvedVocabulary],
-      bannedVocabulary: profile?.banned_vocabulary_list ?? [...FALLBACK_COMPANY_PROFILE.bannedVocabulary],
-      postingFrequency: profile
-        ? profile.posting_frequency_goal[frontendPlatform]
-        : FALLBACK_COMPANY_PROFILE.postingFrequency[frontendPlatform === "x" ? "twitter" : "linkedin"],
+      tone: profile.tone_of_voice_descriptors.join(", ") || "professional",
+      ctaType: profile.primary_cta_types[0] as any,
+      brandColors: profile.brand_color_hex_codes,
+      approvedVocabulary: profile.approved_vocabulary_list,
+      bannedVocabulary: profile.banned_vocabulary_list,
+      postingFrequency: profile.posting_frequency_goal[frontendPlatform],
       companyProfile: {
         companyId,
         ...resolvedCompanyProfile,
@@ -206,6 +187,11 @@ export default function NewPostPage() {
 
   const handleGenerateWithAI = async () => {
     const payload = buildGeneratePayload();
+
+      if (!payload) {
+        setAiError("Complete company profile onboarding before using AI Studio.");
+        return;
+      }
 
     setAiError(null);
     setIsGeneratingAI(true);
@@ -310,6 +296,11 @@ export default function NewPostPage() {
   };
 
   const handleSuggestTopics = async () => {
+    if (!profile) {
+      setAiError("Complete company profile onboarding before using AI Studio.");
+      return;
+    }
+
     const platformsForTopicRequest =
       selectedTargets.length > 0 ? selectedTargets.map(toAIPlatform) : [aiPlatform];
 
@@ -317,14 +308,14 @@ export default function NewPostPage() {
     setIsSuggestingTopics(true);
     try {
       const response = await suggestTopics({
-        industry: profile?.industry_vertical ?? FALLBACK_COMPANY_PROFILE.industry,
+        industry: profile.industry_vertical,
         platforms: platformsForTopicRequest,
         companyProfile: {
           companyId,
-          companyName: profile?.company_name ?? FALLBACK_COMPANY_PROFILE.companyName,
+          companyName: profile.company_name,
           userRole: user?.role ?? null,
-          targetMarket: profile?.target_market ?? FALLBACK_COMPANY_PROFILE.targetMarket,
-          tone: profile?.tone_of_voice_descriptors ?? FALLBACK_COMPANY_PROFILE.tone
+          targetMarket: profile.target_market,
+          tone: profile.tone_of_voice_descriptors
         }
       });
       setTopics(response.topics);
@@ -358,6 +349,10 @@ export default function NewPostPage() {
       <form
         className="space-y-5"
         onSubmit={form.handleSubmit(async (payload) => {
+          if (!companyId) {
+            toast.error("Company ID missing. Complete onboarding first.");
+            return;
+          }
           if (!profile) {
             toast.error("Complete company profile onboarding before full post generation.");
             return;
@@ -431,7 +426,7 @@ export default function NewPostPage() {
 
           {!profile ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Company profile is not set yet. AI Studio works with local defaults, and full post generation is enabled after onboarding.
+              Company profile is not set yet. Complete onboarding to enable AI Studio.
             </p>
           ) : null}
 
@@ -457,7 +452,7 @@ export default function NewPostPage() {
             <button
               type="button"
               onClick={handleGenerateWithAI}
-              disabled={isGeneratingAI}
+              disabled={isGeneratingAI || !profile}
               className="rounded-lg bg-teal-700 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
             >
               {isGeneratingAI ? "Generating..." : "Create with AI"}
@@ -466,7 +461,7 @@ export default function NewPostPage() {
             <button
               type="button"
               onClick={handleBatchGenerate}
-              disabled={isBatchGenerating}
+              disabled={isBatchGenerating || !profile}
               className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
             >
               {isBatchGenerating ? "Generating batch..." : "Generate batch"}
@@ -475,7 +470,7 @@ export default function NewPostPage() {
             <button
               type="button"
               onClick={handleGenerateWithAI}
-              disabled={isGeneratingAI || !aiResult}
+              disabled={isGeneratingAI || !aiResult || !profile}
               className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-60"
             >
               Regenerate

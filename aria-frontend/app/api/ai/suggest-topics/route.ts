@@ -3,12 +3,10 @@ import { z } from "zod";
 
 import {
   aiPlatformSchema,
-  fallbackTopics,
-  hasOpenAIKey,
-  safeJsonParse,
+  createChatCompletion,
+  parseJsonPayload,
   toOpenAIErrorResponse
 } from "@/app/api/ai/_lib";
-import { getOpenAIClient } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +24,7 @@ export async function POST(request: Request) {
   try {
     const payload = suggestTopicsSchema.parse(await request.json());
 
-    if (!hasOpenAIKey()) {
-      return NextResponse.json(fallbackTopics(payload.industry), { status: 200 });
-    }
-
-    const openai = getOpenAIClient();
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const completion = await createChatCompletion({
       messages: [
         {
           role: "system",
@@ -50,12 +41,7 @@ export async function POST(request: Request) {
     });
 
     const raw = completion.choices[0]?.message?.content ?? "";
-    const parsed = safeJsonParse<unknown>(raw);
-    if (!parsed) {
-      throw new Error("OpenAI returned non-JSON topics payload");
-    }
-
-    const data = topicsResponseSchema.parse(parsed);
+    const data = parseJsonPayload(raw, topicsResponseSchema, "OpenAI returned non-JSON topics payload");
     const topics = data.topics.slice(0, 5);
 
     return NextResponse.json(

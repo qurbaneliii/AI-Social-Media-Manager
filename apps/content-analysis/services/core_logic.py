@@ -31,7 +31,13 @@ class ContentAnalysisService:
         self.settings = settings
         self.db_pool = db_pool
         self.ingestion_parser = IngestionParser()
-        self.language_unit = LanguageDetectionUnit(llm_client, settings.llm_proxy_url, settings.language_confidence_threshold)
+        self.language_unit = LanguageDetectionUnit(
+            llm_client,
+            settings.llm_proxy_url,
+            settings.language_confidence_threshold,
+            timeout_seconds=settings.llm_provider_timeout_seconds,
+            max_retries=settings.llm_provider_max_retries,
+        )
         self.feature_extractor = NLPFeatureExtractor(nlp_model)
         self.correlation_unit = EngagementCorrelationUnit()
         self.composer = FingerprintComposer(
@@ -49,7 +55,7 @@ class ContentAnalysisService:
         texts = await self.ingestion_parser.process(payload)
         log.info("step_completed", step="ingestion_parser", sample_count=len(texts))
 
-        lang_result = await self.language_unit.process(texts, payload.target_locale)
+        lang_result = await self.language_unit.process(str(payload.company_id), texts, payload.target_locale)
         log.info("step_completed", step="language_detection", translated=lang_result.translated)
 
         features = await self.feature_extractor.process(lang_result.texts)

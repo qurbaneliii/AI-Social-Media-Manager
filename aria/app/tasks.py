@@ -258,14 +258,19 @@ def _build_cache_key(tenant_id: str, module: str, payload: dict[str, Any]) -> st
     )
 
 
+def _sanitize_prompt_value(value: str, max_chars: int) -> str:
+    compact = " ".join(value.replace("\x00", " ").split()).strip()
+    return compact[:max_chars]
+
+
 @celery.task(bind=True, name="generate_caption")
 def generate_caption(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     data = CaptionInput.model_validate(payload)
     prompt = CAPTION_PROMPT_TEMPLATE.format(
-        company=data.company,
-        intent=data.intent,
-        topic=data.topic,
-        platform=data.platform,
+        company=_sanitize_prompt_value(data.company, 200),
+        intent=_sanitize_prompt_value(data.intent, 120),
+        topic=_sanitize_prompt_value(data.topic, 2000),
+        platform=_sanitize_prompt_value(data.platform, 50),
     )
 
     try:
@@ -285,7 +290,10 @@ def generate_caption(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict
 @celery.task(bind=True, name="generate_hashtags")
 def generate_hashtags(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     data = HashtagInput.model_validate(payload)
-    prompt = HASHTAG_PROMPT_TEMPLATE.format(topic=data.topic, platform=data.platform)
+    prompt = HASHTAG_PROMPT_TEMPLATE.format(
+        topic=_sanitize_prompt_value(data.topic, 2000),
+        platform=_sanitize_prompt_value(data.platform, 50),
+    )
 
     try:
         raw = asyncio.run(_run_router_generate(tenant_id, prompt, max_tokens=300))
@@ -305,8 +313,8 @@ def generate_hashtags(self: Any, tenant_id: str, payload: dict[str, Any]) -> dic
 def generate_audience(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     data = AudienceInput.model_validate(payload)
     prompt = AUDIENCE_PROMPT_TEMPLATE.format(
-        profile_hash=data.profile_hash,
-        topic=data.topic,
+        profile_hash=_sanitize_prompt_value(data.profile_hash, 200),
+        topic=_sanitize_prompt_value(data.topic, 2000),
     )
 
     try:
@@ -326,7 +334,7 @@ def generate_audience(self: Any, tenant_id: str, payload: dict[str, Any]) -> dic
 @celery.task(bind=True, name="generate_seo_metadata")
 def generate_seo_metadata(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     data = SEOInput.model_validate(payload)
-    prompt = SEO_PROMPT_TEMPLATE.format(caption_hash=data.caption_hash)
+    prompt = SEO_PROMPT_TEMPLATE.format(caption_hash=_sanitize_prompt_value(data.caption_hash, 200))
 
     try:
         raw = asyncio.run(_run_router_generate(tenant_id, prompt, max_tokens=350))
@@ -346,8 +354,8 @@ def generate_seo_metadata(self: Any, tenant_id: str, payload: dict[str, Any]) ->
 def calibrate_tone(self: Any, tenant_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     data = ToneInput.model_validate(payload)
     prompt = TONE_PROMPT_TEMPLATE.format(
-        brand_profile=data.brand_profile,
-        content=data.content,
+        brand_profile=_sanitize_prompt_value(data.brand_profile, 500),
+        content=_sanitize_prompt_value(data.content, 3000),
     )
 
     try:
