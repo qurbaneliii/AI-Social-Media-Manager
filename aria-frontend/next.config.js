@@ -4,6 +4,24 @@ const isStaticExport = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 const nextConfig = {
   images: {
     unoptimized: true
+  },
+  async redirects() {
+    if (isStaticExport) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/AI-Social-Media-Manager",
+        destination: "/",
+        permanent: false
+      },
+      {
+        source: "/AI-Social-Media-Manager/:path*",
+        destination: "/:path*",
+        permanent: false
+      }
+    ];
   }
 };
 

@@ -46,7 +46,7 @@ export default function LoginPage() {
       localStorage.setItem("aria_role", "brand_manager");
       localStorage.setItem("aria_company_id", PREVIEW_COMPANY_ID);
       localStorage.setItem("isPreview", "true");
-      navigateTo("/overview");
+      navigateTo("/dashboard");
       return;
     }
 
@@ -117,7 +117,7 @@ export default function LoginPage() {
     localStorage.setItem("aria_role", "brand_manager");
     localStorage.setItem("aria_company_id", PREVIEW_COMPANY_ID);
     localStorage.setItem("isPreview", "true");
-    navigateTo("/overview");
+    navigateTo("/dashboard");
   };
 
   return (
