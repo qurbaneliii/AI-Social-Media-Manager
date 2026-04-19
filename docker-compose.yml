@@ -41,7 +41,7 @@ services:
     build:
       context: ./aria
       dockerfile: Dockerfile
-    command: celery -A app.tasks worker --loglevel=info --concurrency=4
+    command: celery -A app.tasks worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
     env_file:
       - .env
     depends_on:
@@ -85,7 +85,7 @@ services:
       postgres:
         condition: service_started
     environment:
-      DATABASE_URL: ${FRONTEND_DATABASE_URL:-postgresql://aria:aria@postgres:5432/aria}
+      DATABASE_URL: ${FRONTEND_DATABASE_URL:-${DATABASE_URL:-postgresql://aria:aria@postgres:5432/aria}}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:

@@ -122,8 +122,7 @@ python -m pip install -r requirements.txt
 
 ### Git path confusion / “not a git repository”
 
-- Always run commands from:
-  - `/home/runner/work/AI-Social-Media-Manager/AI-Social-Media-Manager`
+- Always run commands from the repository root directory.
 
 ## 8) Cleanup stale Python/Jupyter residue
 
