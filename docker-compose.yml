@@ -41,6 +41,7 @@ services:
     build:
       context: ./aria
       dockerfile: Dockerfile
+    # Tune CELERY_WORKER_CONCURRENCY in .env for low-memory machines or higher-throughput workloads.
     command: celery -A app.tasks worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}
     env_file:
       - .env
