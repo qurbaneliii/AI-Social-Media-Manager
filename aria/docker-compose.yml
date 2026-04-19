@@ -1,5 +1,5 @@
 # filename: docker-compose.yml
-# purpose: Local-first infrastructure stack for API, worker, data stores, streaming, workflow, and observability.
+# purpose: ARIA-only stack (non-canonical); canonical full runtime is at repository root docker-compose.yml.
 # dependencies: Docker Compose, Dockerfile, .env, prometheus.yml
 
 networks:
@@ -18,7 +18,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ../.env
     depends_on:
       - postgres
       - redis
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
     command: celery -A app.tasks worker --loglevel=info --concurrency=4
     env_file:
-      - .env
+      - ../.env
     depends_on:
       - postgres
       - redis
@@ -48,7 +48,7 @@ services:
       dockerfile: Dockerfile
     command: python -m temporal.worker
     env_file:
-      - .env
+      - ../.env
     depends_on:
       - postgres
       - temporal
