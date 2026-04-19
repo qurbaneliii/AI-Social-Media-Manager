@@ -10,7 +10,7 @@
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "postCreateCommand": "bash -lc 'cd /workspaces/AI-Social-Media-Manager && [ -f .env ] || cp .env.example .env'",
+  "postCreateCommand": "bash -lc 'cd ${containerWorkspaceFolder} && [ -f .env ] || cp .env.example .env'",
   "customizations": {
     "vscode": {
       "settings": {

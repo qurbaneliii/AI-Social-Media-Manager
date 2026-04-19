@@ -139,7 +139,7 @@ services:
       - aria-net
 
   temporal:
-    image: temporalio/auto-setup:latest
+    image: temporalio/auto-setup:1.25.2
     environment:
       DB: postgresql
       DB_PORT: 5432
