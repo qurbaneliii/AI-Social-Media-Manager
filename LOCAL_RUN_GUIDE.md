@@ -49,8 +49,10 @@ docker compose up -d postgres redis temporal minio redpanda
 
 ```bash
 cd aria
-python3.12 -m venv .venv
+python3 --version
+python3 -m venv .venv
 source .venv/bin/activate
+python -c "import sys; assert sys.version_info[:2] == (3, 12), 'Use Python 3.12.x for this project'"
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 set -a && source ../.env && set +a
