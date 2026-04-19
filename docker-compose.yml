@@ -108,14 +108,14 @@ services:
       - aria-net
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2.4-alpine
     ports:
       - "6379:6379"
     networks:
       - aria-net
 
   redpanda:
-    image: redpandadata/redpanda:latest
+    image: redpandadata/redpanda:v24.1.8
     command:
       - redpanda
       - start

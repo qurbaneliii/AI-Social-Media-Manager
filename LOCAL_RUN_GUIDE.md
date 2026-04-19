@@ -52,7 +52,7 @@ cd aria
 python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
-python -c "import sys; assert sys.version_info[:2] == (3, 12), 'Use Python 3.12.x for this project'"
+python -c "import sys; assert sys.version_info[:2] == (3, 12), f'Python 3.12 required, found {sys.version_info.major}.{sys.version_info.minor}'"
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 set -a && source ../.env && set +a
