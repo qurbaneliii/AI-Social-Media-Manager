@@ -86,7 +86,7 @@ services:
       postgres:
         condition: service_started
     environment:
-      DATABASE_URL: ${FRONTEND_DATABASE_URL:-${DATABASE_URL:-postgresql://aria:aria@postgres:5432/aria}}
+      DATABASE_URL: ${FRONTEND_DATABASE_URL:-postgresql://aria:aria@postgres:5432/aria}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
