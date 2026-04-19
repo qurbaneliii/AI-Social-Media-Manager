@@ -2,21 +2,26 @@
 
 Implementation workspace for ARIA (Automated Reach & Intelligence Architect).
 
+## Runtime status
+
+`aria/docker-compose.yml` is no longer the canonical default for full-project startup.
+Use repository-root `docker-compose.yml` and root `.env` for reproducible local/Codespaces/Docker behavior.
+
 ## Local Setup
 
-1. Copy env template and adjust provider/OAuth credentials as needed.
+1. Create the canonical root environment file.
 
 ```bash
-cp .env.example .env
+cp ../.env.example ../.env
 ```
 
-2. Install Python dependencies.
+2. Install Python dependencies (Python 3.12).
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Start infrastructure and services.
+3. (Optional, ARIA-only) start ARIA-only stack with root env.
 
 ```bash
 docker compose up -d postgres redis temporal minio

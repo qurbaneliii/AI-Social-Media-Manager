@@ -1,76 +1,32 @@
-# LOCAL RUN GUIDE
+# Local Run Guide (Canonical Runtime)
 
-## 1) Required Software
+## 1) Required software
 
-- Git
 - Docker Desktop + Docker Compose v2
-- Node.js 20+
+- Python **3.12.x** (only; do not use 3.14 for this project)
+- Node.js **20.x**
 - npm 10+
-- Python 3.12+
 
-## 2) Repository Setup
+## 2) One canonical environment file
 
-From your machine:
-
-```bash
-git clone https://github.com/qurbaneliii/AI-Social-Media-Manager.git
-cd AI-Social-Media-Manager
-```
-
-Create env file from template:
-
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-bash/zsh:
+From repository root:
 
 ```bash
 cp .env.example .env
 ```
 
-## 3) Environment Variables
+Do not maintain separate `.env` files for root, `aria`, and `aria-frontend`.
+The canonical runtime uses **root `.env` only**.
 
-Main variables used by the integrated local runtime:
-
-- POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB: database bootstrap credentials used by docker-compose
-- DATABASE_URL: backend PostgreSQL connection
-- FRONTEND_DATABASE_URL: frontend auth/prisma PostgreSQL connection
-- REDIS_URL: redis connection for backend
-- CELERY_BROKER_URL: celery broker
-- CELERY_RESULT_BACKEND: celery result backend
-- TEMPORAL_HOST: temporal endpoint
-- TEMPORAL_NAMESPACE: temporal namespace (default for local)
-- TEMPORAL_TASK_QUEUE: temporal task queue
-- MINIO_ENDPOINT: object storage endpoint
-- MINIO_ACCESS_KEY: object storage access key
-- MINIO_SECRET_KEY: object storage secret key
-- MINIO_BUCKET: object storage bucket name
-- NEXT_PUBLIC_API_BASE_URL: frontend runtime API base
-- NEXT_PUBLIC_API_URL: frontend fallback API base
-- JWT_SECRET: frontend auth token signing key
-- CORS_ORIGINS: allowed browser origins for backend API
-- OPENAI_API_KEY: required for frontend AI Studio endpoints under /api/ai/*
-- DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MISTRAL_API_KEY: at least one is required for backend post generation
-- OPENAI_MODEL, OPENAI_REQUEST_TIMEOUT_MS, OPENAI_MAX_RETRIES: frontend and backend OpenAI tuning
-- LLM_PROVIDER_TIMEOUT_SECONDS, LLM_PROVIDER_MAX_RETRIES: backend provider transport controls
-- OPENAI_EMBEDDING_MODEL, OPENAI_EMBEDDING_TIMEOUT_SECONDS, OPENAI_EMBEDDING_MAX_RETRIES: semantic cache controls
-
-AI is configured for real-provider-only execution. No deterministic local AI fallback path is used.
-
-## 4) Recommended Run (One Command)
+## 3) Canonical Docker run
 
 From repository root:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-Run this command from repository root only. Do not run the separate stack inside `aria/docker-compose.yml` unless you intentionally want the ARIA-internal monorepo stack.
-
-Services started:
+Expected ports:
 
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
@@ -79,132 +35,113 @@ Services started:
 - Temporal: 7233
 - MinIO API: 9000
 - MinIO Console: 9001
+- Redpanda/Kafka: 9092
 
-## 5) Manual Run (Without Docker for App Processes)
+## 4) Canonical local venv run (without Docker for app processes)
 
-Use this if you want to run backend/frontend directly while infra remains in Docker.
-
-### 5.1 Start infra only
+### 4.1 Start infra only
 
 ```bash
-docker-compose up -d postgres redis temporal minio
+docker compose up -d postgres redis temporal minio redpanda
 ```
 
-### 5.2 Run backend manually
+### 4.2 Backend in local venv
 
 ```bash
 cd aria
-python -m venv .venv
-```
-
-PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-bash/zsh:
-
-```bash
+python3.12 -m venv .venv
 source .venv/bin/activate
-```
-
-Load root environment variables into the current shell before starting backend services:
-
-PowerShell:
-
-```powershell
-Get-Content ../.env | ForEach-Object {
-	if ($_ -match '^[A-Za-z_][A-Za-z0-9_]*=') {
-		$name, $value = $_ -split '=', 2
-		[System.Environment]::SetEnvironmentVariable($name, $value)
-	}
-}
-```
-
-bash/zsh:
-
-```bash
-set -a
-source ../.env
-set +a
-```
-
-Install backend dependencies and migrate DB:
-
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+set -a && source ../.env && set +a
 python -m db.migrate
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 5.3 Run frontend manually
-
-Open a second terminal:
+### 4.3 Frontend in second terminal
 
 ```bash
 cd aria-frontend
 npm install
+set -a && source ../.env && set +a
 npx prisma generate
 npx prisma migrate deploy
 npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
-If frontend API calls fail in manual mode, export the same env variables from `../.env` in this second terminal as well.
+## 5) Codespaces run
 
-## 6) MVP Verification Flow
-
-1. Open http://localhost:3000/register
-2. Register a user
-3. Login at http://localhost:3000/login
-4. Open http://localhost:3000/posts/new
-5. Use AI Studio actions (generate/improve/analyze/hashtags/topics)
-6. Refresh browser and verify session remains active
-
-## 7) Troubleshooting
-
-### Backend fails to connect to database
-
-- Confirm postgres container is healthy
-- Verify DATABASE_URL in .env points to postgres service
-
-### Frontend auth routes fail
-
-- Verify FRONTEND_DATABASE_URL is valid
-- Re-run:
+Codespaces should use the devcontainer configuration at `.devcontainer/devcontainer.json`.
+After Codespace starts:
 
 ```bash
-cd aria-frontend
-npx prisma migrate deploy
+cp .env.example .env
+docker compose up --build
 ```
 
-### CORS errors in browser
+## 6) Environment diagnostics checklist
 
-- Ensure CORS_ORIGINS includes http://localhost:3000
-- Restart backend after changing .env
-
-### AI responses fail
-
-- For AI Studio in the frontend, set OPENAI_API_KEY and restart services
-- For backend post generation, set at least one provider key (DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or MISTRAL_API_KEY)
-- Verify keys are valid and have quota
-
-### Rebuild from clean state
+Run from repository root:
 
 ```bash
-docker-compose down -v
-docker-compose up --build
+python3.12 --version
+which python3.12
+docker compose config >/tmp/compose.rendered.yml
+test -f .env && echo ".env present"
+docker compose ps
+curl -fsS http://localhost:8000/health
+curl -I http://localhost:3000
 ```
 
-## 8) Stop Services
+## 7) Failure signatures and recovery
+
+### Backend not listening on `:8000`
+
+- Verify `api` container is running: `docker compose ps`
+- Inspect logs: `docker compose logs api --tail=200`
+- Confirm command includes `--host 0.0.0.0 --port 8000`
+
+### Frontend cannot reach backend
+
+- Ensure `NEXT_PUBLIC_API_BASE_URL` in `.env` is `http://localhost:8000`
+- Restart frontend container/process after `.env` changes
+
+### Python/NumPy/C-extension mismatch
+
+- Use Python 3.12 only
+- Recreate venv and reinstall dependencies:
 
 ```bash
-docker-compose down
+cd aria
+rm -rf .venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Remove volumes too (fresh DB next run):
+### Git path confusion / “not a git repository”
+
+- Always run commands from:
+  - `/home/runner/work/AI-Social-Media-Manager/AI-Social-Media-Manager`
+
+## 8) Cleanup stale Python/Jupyter residue
 
 ```bash
-docker-compose down -v
+jupyter kernelspec list
+```
+
+Remove stale kernels that reference deleted venvs:
+
+```bash
+jupyter kernelspec remove <kernel-name>
+```
+
+Then recreate a clean kernel from active venv:
+
+```bash
+cd aria
+source .venv/bin/activate
+python -m pip install ipykernel
+python -m ipykernel install --user --name aria-venv --display-name "Python (aria-venv)"
 ```

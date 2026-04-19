@@ -1,163 +1,166 @@
-# FILE: docker-compose.yml
+# Canonical local/Codespaces runtime stack.
+
 networks:
-  aria-network:
+  aria-net:
     driver: bridge
 
+volumes:
+  postgres-data:
+
 services:
-  postgres:
-    image: pgvector/pgvector:pg15
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: aria
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks: [aria-network]
-
-  redis:
-    image: redis:7
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks: [aria-network]
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_4LW_COMMANDS_WHITELIST: srvr,ruok,mntr
-    healthcheck:
-      test: ["CMD-SHELL", "echo srvr | nc -w 2 localhost 2181 | grep -q Mode"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
-    networks: [aria-network]
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.1
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-    networks: [aria-network]
-
-  temporal:
-    image: temporalio/auto-setup:1.25.2
-    environment:
-      DB: postgres12
-      DB_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PWD: postgres
-      POSTGRES_SEEDS: postgres
-      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+  api:
+    build:
+      context: ./aria
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - .env
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
+      redis:
+        condition: service_started
+      redpanda:
+        condition: service_started
+      minio:
+        condition: service_started
+      temporal:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - aria-net
+
+  worker:
+    build:
+      context: ./aria
+      dockerfile: Dockerfile
+    command: celery -A app.tasks worker --loglevel=info --concurrency=4
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      redpanda:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - aria-net
+
+  temporal-worker:
+    build:
+      context: ./aria
+      dockerfile: Dockerfile
+    command: python -m temporal.worker
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      temporal:
+        condition: service_started
+    networks:
+      - aria-net
+
+  frontend:
+    build:
+      context: ./aria-frontend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_started
+    environment:
+      DATABASE_URL: ${FRONTEND_DATABASE_URL:-postgresql://aria:aria@postgres:5432/aria}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    networks:
+      - aria-net
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aria}
+      POSTGRES_DB: ${POSTGRES_DB:-aria}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - aria-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - aria-net
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - "512M"
+      - --reserve-memory
+      - "0M"
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+      - --check=false
+    ports:
+      - "9092:9092"
+    networks:
+      - aria-net
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-aria}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-aria}
+      POSTGRES_SEEDS: postgres
+    depends_on:
+      postgres:
+        condition: service_started
     ports:
       - "7233:7233"
-    healthcheck:
-      test: ["CMD-SHELL", "tctl --address localhost:7233 cluster health >/dev/null 2>&1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 25s
-    networks: [aria-network]
+    networks:
+      - aria-net
 
-  content-analysis:
-    build:
-      context: .
-      dockerfile: apps/content-analysis/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8001:8000"]
-    networks: [aria-network]
-
-  visual-understanding:
-    build:
-      context: .
-      dockerfile: apps/visual-understanding/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8002:8000"]
-    networks: [aria-network]
-
-  hashtag-seo:
-    build:
-      context: .
-      dockerfile: apps/hashtag-seo/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8003:8000"]
-    networks: [aria-network]
-
-  audience-targeting:
-    build:
-      context: .
-      dockerfile: apps/audience-targeting/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8004:8000"]
-    networks: [aria-network]
-
-  time-optimization:
-    build:
-      context: .
-      dockerfile: apps/time-optimization/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8005:8000"]
-    networks: [aria-network]
-
-  caption-generation:
-    build:
-      context: .
-      dockerfile: apps/caption-generation/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    ports: ["8006:8000"]
-    networks: [aria-network]
-
-  scheduler:
-    build:
-      context: .
-      dockerfile: apps/scheduler/Dockerfile
-    env_file: [.env.example]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-      temporal: { condition: service_healthy }
-      kafka: { condition: service_healthy }
-    ports: ["8007:8000"]
-    networks: [aria-network]
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - aria-net

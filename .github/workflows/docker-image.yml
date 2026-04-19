@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Docker Runtime CI
 
 on:
   push:
@@ -7,12 +7,16 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - uses: actions/checkout@v4
+      - name: Prepare env file
+        run: cp .env.example .env
+      - name: Validate canonical compose config
+        run: docker compose -f docker-compose.yml config
+      - name: Build canonical backend image
+        run: docker build ./aria --file ./aria/Dockerfile --tag aria-api:${{ github.sha }}
+      - name: Build canonical frontend image
+        run: docker build ./aria-frontend --file ./aria-frontend/Dockerfile --tag aria-frontend:${{ github.sha }}
