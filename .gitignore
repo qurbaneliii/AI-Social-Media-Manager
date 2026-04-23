@@ -1,38 +1,6 @@
-# Dependencies
-node_modules/
-**/node_modules/
-.pnpm-store/
-
-# Next.js / build output
-.next/
-**/.next/
-out/
-**/out/
-dist/
-coverage/
-.turbo/
-*.tsbuildinfo
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-.env.*
-!.env.example
-
-# IDE / OS
-.vscode/
-.idea/
+# OS / editor
 .DS_Store
-Thumbs.db
+.vscode/
 
 # Logs
 *.log
@@ -40,3 +8,30 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Build caches
+.turbo/
+*.tsbuildinfo
