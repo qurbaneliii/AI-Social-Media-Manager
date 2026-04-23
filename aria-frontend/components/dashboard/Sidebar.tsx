@@ -84,6 +84,7 @@ export function Sidebar() {
             {!isCollapsed ? <p className="label-xs px-2">{section.label}</p> : null}
             {section.items.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isHighlighted = "highlight" in item && item.highlight;
               return (
                 <Link
                   key={item.href}
@@ -93,7 +94,7 @@ export function Sidebar() {
                     active
                       ? "border-l-[var(--brand-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
                       : "border-l-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]",
-                    item.highlight && !active ? "text-[var(--brand-primary)]" : ""
+                    isHighlighted && !active ? "text-[var(--brand-primary)]" : ""
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />

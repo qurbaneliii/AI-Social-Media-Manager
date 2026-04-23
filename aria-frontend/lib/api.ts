@@ -66,6 +66,24 @@ export interface AuditLogItem {
   created_at?: string;
 }
 
+export interface SaveDraftRequest {
+  company_id: string;
+  platform: string;
+  content: string;
+  intent?: string;
+  campaign_tag?: string | null;
+  topic?: string | null;
+  tone?: string | null;
+  cta?: string | null;
+}
+
+export interface SaveDraftResponse {
+  post_id: string;
+  status: "draft";
+  platform: string;
+  created_at?: string;
+}
+
 const API_BASE_RAW = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 const API_BASE = API_BASE_RAW.replace(/\/$/, "");
 
@@ -446,6 +464,22 @@ export const getPostResult = async (post_id: string): Promise<PostResult> => {
 
   return requestJson(`/v1/posts/${post_id}`, {
     method: "GET"
+  });
+};
+
+export const saveDraftPost = async (data: SaveDraftRequest): Promise<SaveDraftResponse> => {
+  if (isPreviewMode()) {
+    return {
+      post_id: previewPostId,
+      status: "draft",
+      platform: data.platform,
+      created_at: new Date().toISOString()
+    };
+  }
+
+  return requestJson("/v1/posts/drafts", {
+    method: "POST",
+    body: JSON.stringify(data)
   });
 };
 

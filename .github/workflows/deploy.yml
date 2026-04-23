@@ -30,9 +30,12 @@ jobs:
         working-directory: aria-frontend
         run: npm ci
 
-      - name: Build
+      - name: Build static export (without app/api)
         working-directory: aria-frontend
-        run: npm run build
+        run: |
+          mv app/api app/_api_disabled_for_pages
+          trap 'mv app/_api_disabled_for_pages app/api' EXIT
+          npm run build
         env:
           NEXT_PUBLIC_IS_STATIC: true
           NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager

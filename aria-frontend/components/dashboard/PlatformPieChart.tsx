@@ -21,6 +21,33 @@ export function PlatformPieChart({ data }: PlatformPieChartProps) {
     return [...data].sort((a, b) => b.value - a.value)[0];
   }, [data]);
 
+  const renderActiveShape = (props: unknown) => {
+    const sector = props as {
+      cx?: number;
+      cy?: number;
+      innerRadius?: number;
+      outerRadius?: number;
+      startAngle?: number;
+      endAngle?: number;
+      fill?: string;
+    } | null;
+    if (!sector) {
+      return <g />;
+    }
+
+    return (
+      <Sector
+        cx={sector.cx ?? 0}
+        cy={sector.cy ?? 0}
+        innerRadius={sector.innerRadius ?? 0}
+        outerRadius={(sector.outerRadius ?? 0) + 8}
+        startAngle={sector.startAngle ?? 0}
+        endAngle={sector.endAngle ?? 0}
+        fill={sector.fill ?? "#94a3b8"}
+      />
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -41,21 +68,8 @@ export function PlatformPieChart({ data }: PlatformPieChartProps) {
                   outerRadius={100}
                   paddingAngle={2}
                   activeIndex={activeIndex}
-                  onMouseEnter={(_, index) => setActiveIndex(index)}
-                  activeShape={(props) => {
-                    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-                    return (
-                      <Sector
-                        cx={cx}
-                        cy={cy}
-                        innerRadius={innerRadius}
-                        outerRadius={outerRadius + 8}
-                        startAngle={startAngle}
-                        endAngle={endAngle}
-                        fill={fill}
-                      />
-                    );
-                  }}
+                  onMouseEnter={(_, index: number) => setActiveIndex(index)}
+                  activeShape={renderActiveShape}
                   animationBegin={0}
                   animationDuration={1200}
                 >

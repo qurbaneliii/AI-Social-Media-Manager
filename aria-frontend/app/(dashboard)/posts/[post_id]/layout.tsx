@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export const dynamicParams = true;
+export const dynamicParams = false;
 
 type PostIdLayoutProps = {
   children: ReactNode;

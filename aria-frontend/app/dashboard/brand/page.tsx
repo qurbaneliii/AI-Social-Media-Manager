@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { BarChart3, Clock3, Eye, FileText, Send, TrendingUp } from "lucide-react";
 
 import { AIGeneratorPanel } from "@/components/dashboard/AIGeneratorPanel";
@@ -33,7 +33,7 @@ const iconColorMap = {
   BarChart3: "bg-amber-500/15 text-amber-700"
 } as const;
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   show: {
     transition: {
@@ -42,7 +42,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
 };
