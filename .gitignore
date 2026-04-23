@@ -1,10 +1,13 @@
 # Dependencies
 node_modules/
+**/node_modules/
 .pnpm-store/
 
 # Next.js / build output
 .next/
+**/.next/
 out/
+**/out/
 dist/
 coverage/
 .turbo/
@@ -14,6 +17,7 @@ coverage/
 __pycache__/
 *.pyc
 .venv/
+venv/
 .pytest_cache/
 .mypy_cache/
 
@@ -21,6 +25,14 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
@@ -28,9 +40,3 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
