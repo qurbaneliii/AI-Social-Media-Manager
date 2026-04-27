@@ -10,7 +10,7 @@ RUN useradd -u 1001 -m aria
 WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY packages/types/src/types_shared /app/types_shared
-COPY packages/prompt-templates/src/prompt_templates /app/prompt_templates
+COPY packages/prompt-templates /app/prompt_templates
 COPY apps/caption-generation /app
 ENV PYTHONPATH=/app
 USER aria
