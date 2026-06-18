@@ -8,7 +8,7 @@ Phase 1 and Phase 2 live in `aria/apps/llm-orchestration/app/ai`.
 
 ## Module Responsibilities
 
-- `llm/`: reads environment variables, chooses mock or OpenAI mode, sends structured requests, retries transient failures, validates responses, and avoids logging secrets.
+- `llm/`: reads environment variables, chooses mock or OpenAI mode, sends structured requests, retries transient failures, validates responses, emits token/cost metadata hooks, and avoids logging secrets.
 - `prompts/`: central prompt registry with versioned brand, platform, content-generation, quality-review, and specialist-agent prompts.
 - `schemas/`: Pydantic models for all major AI inputs/outputs.
 - `memory/`: `BrandMemory` facade for schema-first brand profile access. It can later read from PostgreSQL and pgvector.
@@ -92,11 +92,13 @@ The only Phase 1 provider path is `LLMClient`. It reads:
 - `AI_MAX_RETRIES`
 - `AI_REQUEST_TIMEOUT_SECONDS`
 
-No secrets are hardcoded. If OpenAI is configured and mock mode is false, the client calls OpenAI's chat completions endpoint with JSON-object response formatting and validates the result through Pydantic.
+No secrets are hardcoded. If OpenAI is configured and mock mode is false, the client calls OpenAI's chat completions endpoint with JSON-object response formatting, appends the target Pydantic JSON schema as an output instruction, and validates the result through Pydantic.
+
+`LLMClient` accepts an optional `metadata_hook`. The hook receives `LLMMetadata` with provider, model, mock mode, token usage when OpenAI returns it, raw response id when available, schema name, and a future cost-estimation slot. The hook must not receive API keys or full prompt/user content.
 
 ## Mock Mode
 
-Mock mode is enabled by default in `.env.example`. It returns deterministic structured content, strategy, competitor, trend, hashtag, visual, calendar, community, reporting, and quality-review objects through each agent's `mock_factory`. This keeps local development usable without API keys and keeps publishing/replying disabled.
+Mock mode is enabled by default in `.env.example`. It returns deterministic structured content, strategy, competitor, trend, hashtag, visual, calendar, community, reporting, and quality-review objects through each agent's `mock_factory`. This keeps local development usable without API keys and keeps publishing/replying disabled. Mock calls emit zero-cost metadata through the same hook used by real calls.
 
 Community outputs always set `auto_reply_allowed=false`. Calendar outputs remain drafts with `approval_required=true`. Visual concepts are briefs only and do not generate images. Competitor and trend agents only work from provided input data and never scrape or browse.
 
