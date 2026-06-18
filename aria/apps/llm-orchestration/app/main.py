@@ -12,6 +12,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ai.agents import AIOrchestrator
+from ai.llm import LLMClient, LLMSettings
+from ai.schemas.content import ContentRequest, GeneratedContentPackage
+
 
 class Message(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -118,6 +122,18 @@ FastAPIInstrumentor.instrument_app(app)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
+
+
+def get_ai_orchestrator() -> AIOrchestrator:
+    return AIOrchestrator(llm_client=LLMClient(LLMSettings()))
+
+
+@app.post("/internal/ai/generate-content-package", response_model=GeneratedContentPackage)
+async def ai_generate_content_package(
+    payload: ContentRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> GeneratedContentPackage:
+    return await orchestrator.generate_content_package(payload)
 
 
 @app.post("/internal/captions/generate", response_model=CaptionResponse)
