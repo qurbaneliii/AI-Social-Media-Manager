@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   PlusCircle,
+  ShieldCheck,
   Settings
 } from "lucide-react";
 
@@ -36,7 +37,8 @@ const navSections = [
       { label: "Content", icon: FileText, href: "/dashboard/content" },
       { label: "Create Post", icon: PlusCircle, href: "/dashboard/create", highlight: true },
       { label: "Posts", icon: Grid, href: "/dashboard/posts" },
-      { label: "Scheduler", icon: Calendar, href: "/dashboard/scheduler" }
+      { label: "Scheduler", icon: Calendar, href: "/dashboard/scheduler" },
+      { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" }
     ]
   },
   {

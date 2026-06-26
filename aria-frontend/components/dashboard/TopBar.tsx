@@ -43,6 +43,7 @@ const commandActions = [
   { label: "Analytics", href: "/dashboard/analytics", shortcut: "G A" },
   { label: "Posts", href: "/dashboard/posts", shortcut: "G O" },
   { label: "Scheduler", href: "/dashboard/scheduler", shortcut: "G S" },
+  { label: "Approval", href: "/dashboard/approval", shortcut: "G R" },
   { label: "Settings", href: "/dashboard/settings", shortcut: "G T" }
 ] as const;
 

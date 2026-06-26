@@ -13,6 +13,7 @@ dependencies = [
   "pydantic-settings==2.5.2",
   "tenacity==9.0.0",
   "httpx==0.27.2",
+  "asyncpg==0.30.0",
   "sqlalchemy==2.0.36",
   "redis==5.1.1",
   "psycopg[binary]==3.2.3",

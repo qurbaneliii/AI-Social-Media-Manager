@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+from pydantic import BaseModel
+
 from ai.agents import AIOrchestrator
 from ai.llm import LLMClient, LLMSettings
+from ai.llm.errors import LLMError
 from ai.llm.types import LLMMetadata
+from ai.llm.types import LLMMessage
 from ai.schemas.brand import BrandProfile
 from ai.schemas.content import ContentRequest, PlatformContext
 
@@ -17,6 +22,10 @@ def make_brand() -> BrandProfile:
         target_audience=["founders"],
         tone_of_voice=["clear", "useful"],
     )
+
+
+class TinyStructuredOutput(BaseModel):
+    value: str
 
 
 def test_orchestrator_generates_content_package_in_mock_mode() -> None:
@@ -85,3 +94,36 @@ async def _run_orchestrator_with_metadata_hook() -> None:
     assert [event.mock_mode for event in events] == [True, True]
     assert {event.extra["schema"] for event in events} == {"GeneratedContentPackage", "AIQualityReview"}
     assert all(event.extra["estimated_cost_usd"] == 0.0 for event in events)
+
+
+def test_llm_client_respects_configured_retry_count() -> None:
+    asyncio.run(_run_retry_count_check(ai_max_retries=0, expected_attempts=1))
+    asyncio.run(_run_retry_count_check(ai_max_retries=2, expected_attempts=3))
+
+
+async def _run_retry_count_check(ai_max_retries: int, expected_attempts: int) -> None:
+    attempts = 0
+    client = LLMClient(
+        LLMSettings(
+            OPENAI_API_KEY="test-key",
+            AI_MOCK_MODE=False,
+            OPENAI_MODEL="gpt-4o-mini",
+            AI_TEMPERATURE=0.4,
+            AI_MAX_RETRIES=ai_max_retries,
+        )
+    )
+
+    async def always_fail(*args: object, **kwargs: object) -> TinyStructuredOutput:
+        nonlocal attempts
+        attempts += 1
+        raise LLMError("transient failure")
+
+    client._request_openai_structured = always_fail  # type: ignore[method-assign]
+
+    with pytest.raises(LLMError):
+        await client.generate_structured(
+            [LLMMessage(role="user", content="Return test JSON.")],
+            TinyStructuredOutput,
+        )
+
+    assert attempts == expected_attempts

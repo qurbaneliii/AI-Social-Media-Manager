@@ -1,3 +1,5 @@
+// Deprecated for new approval workflows. New approval UI must use the
+// llm-orchestration internal API contracts instead of direct provider calls.
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";

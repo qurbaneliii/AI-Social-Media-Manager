@@ -87,3 +87,126 @@ Data flow for Phase 1:
 | Phase 7 | Frontend integration: dashboard calls orchestration endpoint, display quality/risk scores, approval UX | P1 |
 | Phase 8 | Evaluation and hardening: token/cost tracking, prompt version metrics, safety policies, regression evals, observability | P2 |
 
+
+## Re-Audit Update - 2026-06-19
+
+The repository was re-audited against the PDF prompt after cloning `qurbaneliii/AI-Social-Media-Manager`.
+
+Confirmed Phase 1 foundation:
+
+- `aria/apps/llm-orchestration/app/ai/agents/orchestrator.py` exposes the required orchestrator methods and a working `generate_content_package` path.
+- `aria/apps/llm-orchestration/app/ai/llm/client.py` centralizes LLM access, mock mode, structured output parsing, metadata hooks, and retry handling.
+- `aria/apps/llm-orchestration/app/ai/prompts` centralizes versioned system, platform, task, and quality-review prompts.
+- `aria/apps/llm-orchestration/app/ai/schemas` defines the required brand, content, calendar, community, analytics, and evaluation schemas.
+- `aria/apps/llm-orchestration/app/ai/memory/brand_memory.py` provides the schema-first Brand Memory facade.
+- `aria/apps/llm-orchestration/tests` includes schema, prompt registry, orchestrator, and specialist-agent mock-mode coverage.
+- Root `.env.example` and `aria/.env.example` include `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_MOCK_MODE`, and `AI_TEMPERATURE`.
+
+Implemented during this re-audit:
+
+- Connected real OpenAI retry behavior to `AI_MAX_RETRIES` instead of using a hardcoded retry count.
+- Added a test proving that retry attempts follow the configured value.
+- Documented retry semantics and local mock-mode execution in `AI_ARCHITECTURE.md`.
+
+Remaining risks:
+
+- `aria-frontend/app/api/ai/_lib.ts` and `aria-frontend/lib/openai.ts` still provide a frontend/server-side OpenAI helper path. This should be refactored in the next phase so frontend AI routes call the backend LLM orchestration service instead of owning model access.
+- Duplicate service trees exist under root `apps/` and `aria/apps/`. They should not be deleted until ownership and deployment paths are confirmed.
+- `modified-files-full-code.md` still appears to be a large historical snapshot rather than runtime code; deletion should wait for explicit confirmation.
+
+## Phase 4 Audit Update - 2026-06-19
+
+Phase 4 changed the architecture from a planned approval queue concept into backend approval lifecycle contracts under `aria/apps/llm-orchestration/app/ai/approval`.
+
+Implemented architecture pieces:
+
+- Central approval lifecycle schemas, transition validation, service layer, and errors.
+- Repository methods for draft lookup/status updates, community reply draft storage, and approval audit event storage/listing.
+- Internal API contracts for approval decisions, action routes, audit history, and draft listings.
+- Migration `aria/db/migrations/008_ai_approval_lifecycle.sql` for lifecycle constraints, community reply drafts, report drafts, and approval audit events.
+
+Safety posture:
+
+- No frontend UI was added.
+- No scraping, publishing, platform scheduling, social API calls, or automatic replies were added.
+- `approved` remains an internal approval state only.
+- `ready_for_scheduling` remains an internal readiness state only.
+- Community reply drafts keep `auto_reply_allowed=false`.
+
+Remaining risk:
+
+- Phase 3.5 live Postgres verification failed because local credentials were invalid, so migrations `007` and `008` still need live database verification with a valid `DATABASE_URL`.
+
+## Phase 5 Audit Update - 2026-06-19
+
+Phase 5 added frontend-ready backend approval queue DTOs while keeping the system backend-only and approval-based.
+
+Implemented architecture pieces:
+
+- Stable queue DTOs in `aria/apps/llm-orchestration/app/ai/approval/queue.py`.
+- Sanitized queue routes under `/internal/ai/approval/queue...`.
+- Legacy `/internal/ai/drafts/...` routes now return DTO-shaped queue responses instead of raw DB rows.
+- Repository queue filtering for brand, status, platform, created date range, limit, and offset.
+- Optional live DB test for real asyncpg persistence and approval lifecycle.
+
+Live verification status:
+
+- Direct live application of AI migrations `007` and `008` passed on a temporary isolated Postgres instance on port `5433`.
+- Real asyncpg flow for brand memory, content drafts, quality reviews, calendar drafts, community reply drafts, report drafts, approval transitions, and audit events passed.
+- Full `db.migrate` remains unverified because the available local Postgres install lacks pgvector and Docker is unavailable.
+
+Remaining risk:
+
+- Before production-like frontend integration, the intended `aria/docker-compose.yml` pgvector stack should run successfully with `python -m db.migrate` so `schema_migrations` is populated through the official migration runner.
+
+## Phase 6 Audit Update - 2026-06-19
+
+Phase 6 implemented the frontend approval dashboard against the Phase 5 queue DTOs and lifecycle routes.
+
+Implemented architecture pieces:
+
+- Typed frontend client at `aria-frontend/lib/api/approval.ts`.
+- Approval queue pages under `/dashboard/approval` for all, content, calendar, community, and report drafts.
+- Queue filters, detail panels, audit history, lifecycle actions, quality/risk summaries, and explicit safety labels.
+- Navigation entries in the dashboard sidebar, command palette, and mobile navigation.
+- Deprecation comments on legacy direct OpenAI helpers for new approval workflow use.
+
+Validated behavior:
+
+- Frontend TypeScript validation passed.
+- Production frontend build passed after replacing an existing Unix-only postbuild shell command with a portable Node command.
+- Backend test suite passed with `42 passed, 2 skipped`.
+- Approval frontend source is isolated from direct provider calls and raw persistence JSON field names.
+
+Remaining risks:
+
+- The project has no ESLint configuration, so `npm run lint` starts the interactive Next.js setup prompt instead of running a lint check.
+- Full `db.migrate` verification on the intended pgvector stack remains pending.
+- Legacy frontend AI routes still contain direct provider integrations and require a separate migration plan.
+
+## Phase 7 Audit Update - 2026-06-27
+
+Phase 7 hardened the approval workflow detail/review layer while keeping the system approval-only.
+
+Implemented architecture pieces:
+
+- Safe approval detail DTOs for content drafts, calendar items, community reply drafts, and report drafts.
+- Detail routes under `/internal/ai/approval/detail/...` with typed responses, missing-object handling, invalid object-type handling, persistence-unavailable handling, and latest audit timeline data.
+- Request-changes review context surfaced through detail DTOs and frontend validation.
+- Frontend approval dashboard detail UX that consumes typed detail DTOs instead of persistence rows.
+- Deployment-facing approval client configuration through `NEXT_PUBLIC_AI_ORCHESTRATION_URL` with fallback to the existing frontend API base URL variables.
+- Minimal development CORS support in the LLM orchestration FastAPI app through `CORS_ORIGINS`.
+
+Validated behavior:
+
+- Backend tests passed with Phase 7 detail route and DTO coverage.
+- Frontend TypeScript validation passed.
+- Frontend production build passed.
+- Approval frontend source does not import direct OpenAI/Anthropic helpers and does not reference raw persistence JSON field names.
+
+Remaining risks:
+
+- The intended pgvector Docker stack and full `python -m db.migrate` run remain unverified in this environment.
+- Optional live Postgres tests still require a valid pgvector-enabled `DATABASE_URL`.
+- Legacy direct provider-backed frontend generation routes remain outside the new approval workflow and need a separate migration plan.
+- Production authentication is still not implemented for approval reviewer identity; reviewer fields remain explicit request metadata.

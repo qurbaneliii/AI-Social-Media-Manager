@@ -11,7 +11,7 @@
     "seed": "tsx scripts/seed.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "postbuild": "mkdir -p out && touch out/.nojekyll"
+    "postbuild": "node -e \"const fs=require('fs');fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/.nojekyll','')\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.50.4",

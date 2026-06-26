@@ -1,5 +1,7 @@
 import "server-only";
 
+// Deprecated for new approval workflows. Keep only for existing legacy routes
+// until their backend-orchestration replacement is planned and verified.
 import OpenAI from "openai";
 
 let openaiClient: OpenAI | null = null;

@@ -7,7 +7,7 @@ from typing import Any, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from .config import LLMSettings
 from .errors import LLMError
@@ -51,13 +51,26 @@ class LLMClient:
 
         return await self._call_openai_structured(messages, output_model, temperature=temperature)
 
-    @retry(
-        retry=retry_if_exception_type((httpx.HTTPError, LLMError)),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
-        reraise=True,
-    )
     async def _call_openai_structured(
+        self,
+        messages: list[LLMMessage],
+        output_model: type[T],
+        *,
+        temperature: float | None = None,
+    ) -> T:
+        attempts = max(1, self.settings.ai_max_retries + 1)
+        async for attempt in AsyncRetrying(
+            retry=retry_if_exception_type((httpx.HTTPError, LLMError)),
+            stop=stop_after_attempt(attempts),
+            wait=wait_exponential(multiplier=1, min=1, max=8),
+            reraise=True,
+        ):
+            with attempt:
+                return await self._request_openai_structured(messages, output_model, temperature=temperature)
+
+        raise LLMError("OpenAI structured request failed without returning a response.")
+
+    async def _request_openai_structured(
         self,
         messages: list[LLMMessage],
         output_model: type[T],

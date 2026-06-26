@@ -1,20 +1,68 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Literal
 
 import httpx
 import redis
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ai.agents import AIOrchestrator
+from ai.approval import (
+    ApprovalAction,
+    ApprovalAuditEvent,
+    ApprovalDecision,
+    ApprovalObjectType,
+    ApprovalResult,
+    ApprovalStatus,
+    DraftNotFoundError,
+    InvalidApprovalTransitionError,
+)
+from ai.approval.queue import (
+    ApprovalAuditEventResponse,
+    ApprovalDetail,
+    ApprovalQueueResponse,
+    CalendarDraftDetail,
+    CalendarApprovalQueueResponse,
+    CommunityApprovalQueueResponse,
+    CommunityReplyDraftDetail,
+    ContentDraftDetail,
+    ContentApprovalQueueResponse,
+    DraftListFilters,
+    ReportDraftDetail,
+    ReportApprovalQueueResponse,
+    calendar_detail_from_row,
+    calendar_queue_item_from_row,
+    community_detail_from_row,
+    community_queue_item_from_row,
+    content_detail_from_row,
+    content_queue_item_from_row,
+    report_detail_from_row,
+    report_queue_item_from_row,
+)
+from ai.approval.service import ApprovalService
 from ai.llm import LLMClient, LLMSettings
+from ai.memory import BrandProfileNotFoundError
+from ai.persistence import AIPersistenceRepository
+from ai.schemas.analytics import ReportingInsightReport, ReportingInsightRequest
+from ai.schemas.calendar import CalendarPlanningRequest, ContentCalendarPlan
+from ai.schemas.community import CommunityManagementRequest, CommunityMessageAnalysis
+from ai.schemas.competitor import CompetitorAnalysisRequest, CompetitorInsightReport
 from ai.schemas.content import ContentRequest, GeneratedContentPackage
+from ai.schemas.evaluation import AIQualityReview
+from ai.schemas.hashtag import HashtagRecommendation, HashtagRecommendationRequest
+from ai.schemas.strategy import BrandStrategyPlan, BrandStrategyRequest
+from ai.schemas.trend import TrendInsightReport, TrendResearchRequest
+from ai.schemas.visual import VisualConceptPackage, VisualConceptRequest
 
 
 class Message(BaseModel):
@@ -60,6 +108,29 @@ class OrchestrateResponse(BaseModel):
     context_snapshot: dict[str, Any]
     module_results: dict[str, Any]
     generated_package: dict[str, Any]
+
+
+class ApprovalActionRequest(BaseModel):
+    object_id: str
+    object_type: ApprovalObjectType
+    reviewer_id: str | None = None
+    reviewer_role: str | None = None
+    reason: str = ""
+    requested_changes: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DraftListResponse(ApprovalQueueResponse):
+    pass
+
+
+def _get_cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw.strip():
+        parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if parsed:
+            return parsed
+    return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
 class LiteLLMAdapter:
@@ -115,8 +186,57 @@ def get_deps() -> Dependencies:
     return Dependencies()
 
 
-app = FastAPI(title="ARIA LLM Orchestration Service")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    database_url = os.getenv("DATABASE_URL")
+    app.state.db_pool = None
+    if database_url:
+        import asyncpg
+
+        app.state.db_pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
+    try:
+        yield
+    finally:
+        db_pool = getattr(app.state, "db_pool", None)
+        if db_pool is not None:
+            await db_pool.close()
+
+
+app = FastAPI(title="ARIA LLM Orchestration Service", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_get_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 FastAPIInstrumentor.instrument_app(app)
+
+
+@app.exception_handler(BrandProfileNotFoundError)
+async def brand_profile_not_found_handler(request: Request, exc: BrandProfileNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(DraftNotFoundError)
+async def draft_not_found_handler(request: Request, exc: DraftNotFoundError) -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={"detail": str(exc), "object_type": exc.object_type, "object_id": exc.object_id},
+    )
+
+
+@app.exception_handler(InvalidApprovalTransitionError)
+async def invalid_approval_transition_handler(request: Request, exc: InvalidApprovalTransitionError) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": str(exc),
+            "object_type": exc.object_type,
+            "previous_status": exc.previous_status,
+            "new_status": exc.new_status,
+        },
+    )
 
 
 @app.get("/health")
@@ -124,8 +244,132 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
 
 
-def get_ai_orchestrator() -> AIOrchestrator:
-    return AIOrchestrator(llm_client=LLMClient(LLMSettings()))
+def get_ai_orchestrator(request: Request) -> AIOrchestrator:
+    db_pool = getattr(request.app.state, "db_pool", None)
+    persistence_repository = AIPersistenceRepository(db_pool) if db_pool is not None else None
+    return AIOrchestrator(
+        llm_client=LLMClient(LLMSettings()),
+        persistence_repository=persistence_repository,
+    )
+
+
+def get_persistence_repository(request: Request) -> AIPersistenceRepository:
+    db_pool = getattr(request.app.state, "db_pool", None)
+    if db_pool is None:
+        raise HTTPException(status_code=503, detail="AI persistence database pool is not configured.")
+    return AIPersistenceRepository(db_pool)
+
+
+def get_approval_service(repository: AIPersistenceRepository = Depends(get_persistence_repository)) -> ApprovalService:
+    return ApprovalService(repository)
+
+
+async def _apply_approval_action(
+    payload: ApprovalActionRequest,
+    action: ApprovalAction,
+    new_status: ApprovalStatus,
+    service: ApprovalService,
+) -> ApprovalResult:
+    decision = ApprovalDecision(
+        object_id=payload.object_id,
+        object_type=payload.object_type,
+        new_status=new_status,
+        action=action,
+        reviewer_id=payload.reviewer_id,
+        reviewer_role=payload.reviewer_role,
+        reason=payload.reason,
+        requested_changes=payload.requested_changes,
+        metadata=payload.metadata,
+    )
+    return await service.apply_decision(decision)
+
+
+def _queue_filters(
+    *,
+    brand_id: str | None = None,
+    status: str | None = None,
+    object_type: ApprovalObjectType | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+) -> DraftListFilters:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset must be greater than or equal to 0")
+    if created_after and created_before and created_after > created_before:
+        raise HTTPException(status_code=400, detail="created_after must be before created_before")
+    return DraftListFilters(
+        brand_id=brand_id,
+        status=status,
+        object_type=object_type,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+
+
+def _validate_status_for_queue(object_type: ApprovalObjectType, status: str | None) -> None:
+    if not status:
+        return
+    allowed = {
+        ApprovalObjectType.CONTENT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+        ApprovalObjectType.CALENDAR_DRAFT: {
+            "draft",
+            "in_review",
+            "approved",
+            "rejected",
+            "changes_requested",
+            "ready_for_scheduling",
+            "archived",
+        },
+        ApprovalObjectType.COMMUNITY_REPLY: {
+            "draft",
+            "in_review",
+            "approved",
+            "rejected",
+            "changes_requested",
+            "escalated",
+            "archived",
+        },
+        ApprovalObjectType.REPORT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+    }
+    if status not in allowed[object_type]:
+        raise HTTPException(status_code=400, detail=f"Invalid status for {object_type.value}: {status}")
+
+
+async def _approval_detail_for_object(
+    object_type: ApprovalObjectType,
+    object_id: str,
+    repository: AIPersistenceRepository,
+    service: ApprovalService,
+) -> ApprovalDetail:
+    events = await service.list_audit_events(object_type, object_id)
+    if object_type == ApprovalObjectType.CONTENT_DRAFT:
+        row = await repository.get_content_draft_by_id(object_id)
+        if row is None:
+            raise DraftNotFoundError(object_type.value, object_id)
+        return content_detail_from_row(row, events)
+    if object_type == ApprovalObjectType.CALENDAR_DRAFT:
+        row = await repository.get_calendar_draft_item_by_id(object_id)
+        if row is None:
+            raise DraftNotFoundError(object_type.value, object_id)
+        return calendar_detail_from_row(row, events)
+    if object_type == ApprovalObjectType.COMMUNITY_REPLY:
+        row = await repository.get_community_reply_draft_by_id(object_id)
+        if row is None:
+            raise DraftNotFoundError(object_type.value, object_id)
+        return community_detail_from_row(row, events)
+    if object_type == ApprovalObjectType.REPORT_DRAFT:
+        row = await repository.get_report_draft_by_id(object_id)
+        if row is None:
+            raise DraftNotFoundError(object_type.value, object_id)
+        return report_detail_from_row(row, events)
+    raise HTTPException(status_code=400, detail=f"Invalid approval object type: {object_type}")
 
 
 @app.post("/internal/ai/generate-content-package", response_model=GeneratedContentPackage)
@@ -134,6 +378,457 @@ async def ai_generate_content_package(
     orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
 ) -> GeneratedContentPackage:
     return await orchestrator.generate_content_package(payload)
+
+
+@app.post("/internal/ai/brand-strategy", response_model=BrandStrategyPlan)
+async def ai_create_brand_strategy(
+    payload: BrandStrategyRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> BrandStrategyPlan:
+    return await orchestrator.create_brand_strategy(payload)
+
+
+@app.post("/internal/ai/competitors/analyze", response_model=CompetitorInsightReport)
+async def ai_analyze_competitors(
+    payload: CompetitorAnalysisRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> CompetitorInsightReport:
+    return await orchestrator.analyze_competitors(payload)
+
+
+@app.post("/internal/ai/trends/research", response_model=TrendInsightReport)
+async def ai_research_trends(
+    payload: TrendResearchRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> TrendInsightReport:
+    return await orchestrator.research_trends(payload)
+
+
+@app.post("/internal/ai/hashtags/recommend", response_model=HashtagRecommendation)
+async def ai_recommend_hashtags(
+    payload: HashtagRecommendationRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> HashtagRecommendation:
+    return await orchestrator.recommend_hashtags(payload)
+
+
+@app.post("/internal/ai/visual-concept", response_model=VisualConceptPackage)
+async def ai_generate_visual_concept(
+    payload: VisualConceptRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> VisualConceptPackage:
+    return await orchestrator.generate_visual_concept(payload)
+
+
+@app.post("/internal/ai/content-calendar", response_model=ContentCalendarPlan)
+async def ai_create_content_calendar(
+    payload: CalendarPlanningRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> ContentCalendarPlan:
+    return await orchestrator.create_content_calendar(payload)
+
+
+@app.post("/internal/ai/community/analyze", response_model=CommunityMessageAnalysis)
+async def ai_analyze_community_message(
+    payload: CommunityManagementRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> CommunityMessageAnalysis:
+    analysis = await orchestrator.analyze_community_message(payload)
+    if orchestrator.persistence_repository is not None:
+        await orchestrator.persistence_repository.save_community_reply_draft(
+            brand_id=payload.brand_profile.brand_id,
+            analysis=analysis,
+            metadata={
+                "platform": payload.platform,
+                "author_context": payload.author_context,
+                "conversation_context": payload.conversation_context,
+                "phase": "phase_4_approval_lifecycle",
+            },
+        )
+    return analysis
+
+
+@app.post("/internal/ai/reports/insights", response_model=ReportingInsightReport)
+async def ai_generate_report_insights(
+    payload: ReportingInsightRequest,
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> ReportingInsightReport:
+    return await orchestrator.generate_report_insights(payload)
+
+
+@app.post("/internal/ai/content-quality/review", response_model=AIQualityReview)
+async def ai_review_content_quality(
+    payload: dict[str, Any],
+    orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
+) -> AIQualityReview:
+    return await orchestrator.review_content_quality(
+        payload.get("request", {}),
+        payload.get("package", payload.get("output", {})),
+    )
+
+
+@app.post("/internal/ai/approval/decision", response_model=ApprovalResult)
+async def ai_apply_approval_decision(
+    payload: ApprovalDecision,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await service.apply_decision(payload)
+
+
+@app.post("/internal/ai/approval/submit", response_model=ApprovalResult)
+async def ai_submit_for_approval(
+    payload: ApprovalActionRequest,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await _apply_approval_action(payload, ApprovalAction.SUBMIT, ApprovalStatus.IN_REVIEW, service)
+
+
+@app.post("/internal/ai/approval/approve", response_model=ApprovalResult)
+async def ai_approve_draft(
+    payload: ApprovalActionRequest,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await _apply_approval_action(payload, ApprovalAction.APPROVE, ApprovalStatus.APPROVED, service)
+
+
+@app.post("/internal/ai/approval/reject", response_model=ApprovalResult)
+async def ai_reject_draft(
+    payload: ApprovalActionRequest,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await _apply_approval_action(payload, ApprovalAction.REJECT, ApprovalStatus.REJECTED, service)
+
+
+@app.post("/internal/ai/approval/request-changes", response_model=ApprovalResult)
+async def ai_request_changes(
+    payload: ApprovalActionRequest,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await _apply_approval_action(
+        payload,
+        ApprovalAction.REQUEST_CHANGES,
+        ApprovalStatus.CHANGES_REQUESTED,
+        service,
+    )
+
+
+@app.post("/internal/ai/approval/archive", response_model=ApprovalResult)
+async def ai_archive_draft(
+    payload: ApprovalActionRequest,
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalResult:
+    return await _apply_approval_action(payload, ApprovalAction.ARCHIVE, ApprovalStatus.ARCHIVED, service)
+
+
+@app.get("/internal/ai/approval/audit/{object_type}/{object_id}", response_model=list[ApprovalAuditEventResponse])
+async def ai_list_approval_audit_events(
+    object_type: ApprovalObjectType,
+    object_id: str,
+    service: ApprovalService = Depends(get_approval_service),
+) -> list[ApprovalAuditEventResponse]:
+    return await service.list_audit_events(object_type, object_id)
+
+
+@app.get("/internal/ai/approval/detail/content/{draft_id}", response_model=ContentDraftDetail)
+async def ai_get_content_draft_detail(
+    draft_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+    service: ApprovalService = Depends(get_approval_service),
+) -> ContentDraftDetail:
+    detail = await _approval_detail_for_object(ApprovalObjectType.CONTENT_DRAFT, draft_id, repository, service)
+    return detail  # type: ignore[return-value]
+
+
+@app.get("/internal/ai/approval/detail/calendar/{item_id}", response_model=CalendarDraftDetail)
+async def ai_get_calendar_draft_detail(
+    item_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+    service: ApprovalService = Depends(get_approval_service),
+) -> CalendarDraftDetail:
+    detail = await _approval_detail_for_object(ApprovalObjectType.CALENDAR_DRAFT, item_id, repository, service)
+    return detail  # type: ignore[return-value]
+
+
+@app.get("/internal/ai/approval/detail/community/{reply_draft_id}", response_model=CommunityReplyDraftDetail)
+async def ai_get_community_reply_detail(
+    reply_draft_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+    service: ApprovalService = Depends(get_approval_service),
+) -> CommunityReplyDraftDetail:
+    detail = await _approval_detail_for_object(ApprovalObjectType.COMMUNITY_REPLY, reply_draft_id, repository, service)
+    return detail  # type: ignore[return-value]
+
+
+@app.get("/internal/ai/approval/detail/reports/{report_id}", response_model=ReportDraftDetail)
+async def ai_get_report_draft_detail(
+    report_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+    service: ApprovalService = Depends(get_approval_service),
+) -> ReportDraftDetail:
+    detail = await _approval_detail_for_object(ApprovalObjectType.REPORT_DRAFT, report_id, repository, service)
+    return detail  # type: ignore[return-value]
+
+
+@app.get("/internal/ai/approval/detail/{object_type}/{object_id}", response_model=ApprovalDetail)
+async def ai_get_approval_detail(
+    object_type: str,
+    object_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+    service: ApprovalService = Depends(get_approval_service),
+) -> ApprovalDetail:
+    try:
+        parsed_type = ApprovalObjectType(object_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid approval object type: {object_type}") from exc
+    return await _approval_detail_for_object(parsed_type, object_id, repository, service)
+
+
+@app.get("/internal/ai/approval/queue/content", response_model=ContentApprovalQueueResponse)
+async def ai_list_content_approval_queue(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> ContentApprovalQueueResponse:
+    filters = _queue_filters(
+        brand_id=brand_id,
+        status=status,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+    _validate_status_for_queue(ApprovalObjectType.CONTENT_DRAFT, filters.status)
+    rows = await repository.list_content_drafts(
+        brand_id=filters.brand_id,
+        status=filters.status,
+        platform=filters.platform,
+        limit=filters.limit,
+        offset=filters.offset,
+        created_after=filters.created_after,
+        created_before=filters.created_before,
+    )
+    items = [content_queue_item_from_row(row) for row in rows]
+    return ContentApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+
+
+@app.get("/internal/ai/approval/queue/calendar", response_model=CalendarApprovalQueueResponse)
+async def ai_list_calendar_approval_queue(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> CalendarApprovalQueueResponse:
+    filters = _queue_filters(
+        brand_id=brand_id,
+        status=status,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+    _validate_status_for_queue(ApprovalObjectType.CALENDAR_DRAFT, filters.status)
+    rows = await repository.list_calendar_drafts(
+        brand_id=filters.brand_id,
+        status=filters.status,
+        platform=filters.platform,
+        limit=filters.limit,
+        offset=filters.offset,
+        created_after=filters.created_after,
+        created_before=filters.created_before,
+    )
+    items = [calendar_queue_item_from_row(row) for row in rows]
+    return CalendarApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+
+
+@app.get("/internal/ai/approval/queue/community", response_model=CommunityApprovalQueueResponse)
+async def ai_list_community_approval_queue(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> CommunityApprovalQueueResponse:
+    filters = _queue_filters(
+        brand_id=brand_id,
+        status=status,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+    _validate_status_for_queue(ApprovalObjectType.COMMUNITY_REPLY, filters.status)
+    rows = await repository.list_community_reply_drafts(
+        brand_id=filters.brand_id,
+        status=filters.status,
+        platform=filters.platform,
+        limit=filters.limit,
+        offset=filters.offset,
+        created_after=filters.created_after,
+        created_before=filters.created_before,
+    )
+    items = [community_queue_item_from_row(row) for row in rows]
+    return CommunityApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+
+
+@app.get("/internal/ai/approval/queue/reports", response_model=ReportApprovalQueueResponse)
+async def ai_list_report_approval_queue(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> ReportApprovalQueueResponse:
+    filters = _queue_filters(
+        brand_id=brand_id,
+        status=status,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+    _validate_status_for_queue(ApprovalObjectType.REPORT_DRAFT, filters.status)
+    rows = await repository.list_report_drafts(
+        brand_id=filters.brand_id,
+        status=filters.status,
+        platform=filters.platform,
+        limit=filters.limit,
+        offset=filters.offset,
+        created_after=filters.created_after,
+        created_before=filters.created_before,
+    )
+    items = [report_queue_item_from_row(row) for row in rows]
+    return ReportApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+
+
+@app.get("/internal/ai/approval/queue", response_model=ApprovalQueueResponse)
+async def ai_list_approval_queue(
+    brand_id: str | None = None,
+    status: str | None = None,
+    object_type: ApprovalObjectType | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> ApprovalQueueResponse:
+    filters = _queue_filters(
+        brand_id=brand_id,
+        status=status,
+        object_type=object_type,
+        platform=platform,
+        limit=limit,
+        offset=offset,
+        created_after=created_after,
+        created_before=created_before,
+    )
+    object_types = [filters.object_type] if filters.object_type else list(ApprovalObjectType)
+    items: list[Any] = []
+    for queue_type in object_types:
+        _validate_status_for_queue(queue_type, filters.status)
+        if queue_type == ApprovalObjectType.CONTENT_DRAFT:
+            rows = await repository.list_content_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            items.extend(content_queue_item_from_row(row) for row in rows)
+        elif queue_type == ApprovalObjectType.CALENDAR_DRAFT:
+            rows = await repository.list_calendar_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            items.extend(calendar_queue_item_from_row(row) for row in rows)
+        elif queue_type == ApprovalObjectType.COMMUNITY_REPLY:
+            rows = await repository.list_community_reply_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            items.extend(community_queue_item_from_row(row) for row in rows)
+        elif queue_type == ApprovalObjectType.REPORT_DRAFT:
+            rows = await repository.list_report_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            items.extend(report_queue_item_from_row(row) for row in rows)
+    items.sort(key=lambda item: item.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    items = items[: filters.limit]
+    return ApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+
+
+@app.get("/internal/ai/drafts/content", response_model=ContentApprovalQueueResponse)
+async def ai_list_content_drafts(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> ContentApprovalQueueResponse:
+    return await ai_list_content_approval_queue(
+        brand_id,
+        status,
+        platform,
+        limit,
+        offset,
+        created_after,
+        created_before,
+        repository,
+    )
+
+
+@app.get("/internal/ai/drafts/calendar", response_model=CalendarApprovalQueueResponse)
+async def ai_list_calendar_drafts(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> CalendarApprovalQueueResponse:
+    return await ai_list_calendar_approval_queue(
+        brand_id,
+        status,
+        platform,
+        limit,
+        offset,
+        created_after,
+        created_before,
+        repository,
+    )
+
+
+@app.get("/internal/ai/drafts/community", response_model=CommunityApprovalQueueResponse)
+async def ai_list_community_reply_drafts(
+    brand_id: str | None = None,
+    status: str | None = None,
+    platform: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    created_after: datetime | None = None,
+    created_before: datetime | None = None,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> CommunityApprovalQueueResponse:
+    return await ai_list_community_approval_queue(
+        brand_id,
+        status,
+        platform,
+        limit,
+        offset,
+        created_after,
+        created_before,
+        repository,
+    )
 
 
 @app.post("/internal/captions/generate", response_model=CaptionResponse)

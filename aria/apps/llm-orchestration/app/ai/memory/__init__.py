@@ -1,4 +1,4 @@
-from .brand_memory import BrandMemory
+from .brand_memory import BrandMemory, BrandProfileNotFoundError
 
-__all__ = ["BrandMemory"]
+__all__ = ["BrandMemory", "BrandProfileNotFoundError"]
 
