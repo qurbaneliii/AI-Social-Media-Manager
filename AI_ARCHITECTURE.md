@@ -11,6 +11,7 @@ Phase 1 and Phase 2 live in `aria/apps/llm-orchestration/app/ai`.
 - `llm/`: reads environment variables, chooses mock or OpenAI mode, sends structured requests, retries transient failures, validates responses, emits token/cost metadata hooks, and avoids logging secrets.
 - `prompts/`: central prompt registry with versioned brand, platform, content-generation, quality-review, and specialist-agent prompts.
 - `schemas/`: Pydantic models for all major AI inputs/outputs.
+- `schemas.brand.ProductContext`: system-known ARIA product/workspace context, supported capabilities, automation boundaries, and Brand Brain required inputs.
 - `memory/`: `BrandMemory` facade for schema-first brand profile access. It can later read from PostgreSQL and pgvector.
 - `agents/`: reusable agent classes. Phase 2 adds the specialist agent layer behind `AIOrchestrator`.
 - `workflows/`: end-to-end use-case composition. Phase 1 includes `GenerateContentPackageWorkflow`; Phase 2 keeps specialist orchestration thin and schema-first.
@@ -228,7 +229,8 @@ The endpoint returns a structured `GeneratedContentPackage` with quality scores 
 - Phase 5: implemented live database verification path, read DTO hardening, and frontend-ready approval queue contracts.
 - Phase 6: implemented frontend approval queues backed by the Phase 5 DTO routes, with lifecycle actions and audit history. Full pgvector migration-runner verification remains pending.
 - Phase 7: implemented safe draft-detail DTOs, request-changes review context, approval audit timelines, frontend detail review UX, and deployment-facing API/CORS/env checks. Full pgvector migration-runner verification remains pending.
-- Phase 8: add eval datasets, cost tracking, prompt version metrics, observability, and production guardrails.
+- Phase 8: implemented product AI workspace context, Brand Brain get/upsert/validate contracts, typed frontend orchestration clients, and dashboard modules for AI Workspace, Brand Brain, Content Studio, Strategy, Trends, Competitors, AI Analyst, Calendar AI, Community AI, Reports AI, and Approval Queue.
+- Phase 9: add eval datasets, cost tracking, prompt version metrics, observability, production auth, and migration of legacy direct-provider frontend generator routes.
 
 ## Phase 6 Frontend Integration - 2026-06-19
 
@@ -281,3 +283,39 @@ Deployment-facing behavior:
 - The approval client falls back to existing frontend API base URL variables when the dedicated variable is absent.
 - The LLM orchestration service reads `CORS_ORIGINS` and defaults to local frontend origins for development.
 - Reviewer identity remains explicit placeholder request metadata until a production auth system is wired through the internal approval routes.
+
+## Phase 8 Product AI Workspace - 2026-06-27
+
+Phase 8 expands ARIA from approval dashboard coverage into a broader AI Social Media Manager and Brand Manager workspace while preserving approval-based architecture.
+
+Product context:
+
+- `ProductContext` defines ARIA as an AI Social Media Manager and Brand Manager with approval-based workflow mode.
+- Supported capabilities include strategy, content generation, hashtag recommendation, visual concept generation, calendar planning, community management, reporting, competitor analysis, trend research, and approval workflow.
+- Automation boundaries remain explicit: no auto-publish, no auto-reply, no real platform scheduling, and no scraping without future integration.
+- `PromptRegistry` injects product context into content, quality, and specialist-agent prompt payloads.
+
+Brand Brain routes:
+
+- `GET /internal/ai/workspace-context`
+- `GET /internal/ai/brand-profile/{brand_id}`
+- `POST /internal/ai/brand-profile`
+- `PUT /internal/ai/brand-profile/{brand_id}`
+- `POST /internal/ai/brand-profile/validate`
+
+The Brand Brain routes return schema-first `BrandProfileResponse` and `BrandProfileValidationResult` objects. They do not expose raw database rows or `brand_profile_json`.
+
+Frontend workspace routes:
+
+- `/dashboard/ai`
+- `/dashboard/brand-brain`
+- `/dashboard/content-studio`
+- `/dashboard/strategy`
+- `/dashboard/trends`
+- `/dashboard/competitors`
+- `/dashboard/ai-analyst`
+- `/dashboard/calendar-ai`
+- `/dashboard/community-ai`
+- `/dashboard/reports-ai`
+
+The frontend client `aria-frontend/lib/api/ai-workspace.ts` calls only the centralized LLM orchestration API. New AI workspace code does not import legacy OpenAI or Anthropic helpers. Existing approval dashboard routes remain unchanged.

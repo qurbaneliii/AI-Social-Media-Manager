@@ -17,6 +17,7 @@ from ai.memory import BrandMemory
 from ai.persistence import AIPersistenceRepository, PersistenceAuditMetadata
 from ai.prompts import PromptRegistry
 from ai.schemas.analytics import ReportingInsightReport, ReportingInsightRequest
+from ai.schemas.brand import ProductContext
 from ai.schemas.calendar import CalendarPlanningRequest, ContentCalendarPlan
 from ai.schemas.community import CommunityManagementRequest, CommunityMessageAnalysis
 from ai.schemas.competitor import CompetitorAnalysisRequest, CompetitorInsightReport
@@ -36,9 +37,11 @@ class AIOrchestrator:
         prompt_registry: PromptRegistry | None = None,
         brand_memory: BrandMemory | None = None,
         persistence_repository: AIPersistenceRepository | None = None,
+        product_context: ProductContext | None = None,
     ) -> None:
+        self.product_context = product_context or ProductContext()
         self.llm_client = llm_client or LLMClient()
-        self.prompt_registry = prompt_registry or PromptRegistry()
+        self.prompt_registry = prompt_registry or PromptRegistry(self.product_context)
         self.persistence_repository = persistence_repository
         self.brand_memory = brand_memory or BrandMemory(
             persistence_repository,

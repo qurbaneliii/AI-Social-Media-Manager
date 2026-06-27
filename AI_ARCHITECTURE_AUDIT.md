@@ -210,3 +210,30 @@ Remaining risks:
 - Optional live Postgres tests still require a valid pgvector-enabled `DATABASE_URL`.
 - Legacy direct provider-backed frontend generation routes remain outside the new approval workflow and need a separate migration plan.
 - Production authentication is still not implemented for approval reviewer identity; reviewer fields remain explicit request metadata.
+
+## Phase 8 Audit Update - 2026-06-27
+
+Phase 8 expands ARIA from an approval-centered review UI into a broader AI Social Media Manager and Brand Manager workspace.
+
+Implemented architecture pieces:
+
+- Product/workspace context schema through `ProductContext`.
+- Prompt payload injection of ARIA's product role, supported capabilities, safety rules, and automation boundaries.
+- Brand Brain backend routes for workspace context, brand profile get/upsert/update, and completeness validation.
+- Frontend typed AI workspace client for all orchestrator methods.
+- Active dashboard panels for AI Workspace, Brand Brain, Content Studio, Strategy, Trends, Competitors, AI Analyst, Calendar AI, Community AI, and Reports AI.
+- Navigation updates across sidebar, command palette, and mobile nav.
+
+Safety posture:
+
+- New AI workspace frontend code calls only the centralized LLM orchestration service.
+- No scraping, publishing, automatic replies, real platform scheduling, or social platform API integrations were added.
+- Brand Brain exposes curated schema fields only and does not expose raw persistence JSON.
+- Existing approval dashboard behavior remains intact.
+
+Remaining risks:
+
+- Brand Brain save/load requires `DATABASE_URL` and a configured runtime DB pool; without it the frontend shows a structured backend/persistence error and uses validated default context locally.
+- Full pgvector migration-runner verification remains pending.
+- Legacy direct OpenAI/Anthropic frontend generator routes remain outside the new workspace and should be migrated in a compatibility-tested phase.
+- Production auth/reviewer identity propagation remains future work.

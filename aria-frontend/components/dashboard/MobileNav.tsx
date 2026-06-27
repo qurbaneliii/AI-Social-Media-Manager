@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, FileText, LayoutDashboard, PlusCircle, Settings, ShieldCheck } from "lucide-react";
+import { Brain, FileText, LayoutDashboard, PlusCircle, Settings, ShieldCheck, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Brand", icon: LayoutDashboard, href: "/dashboard/brand" },
-  { label: "Content", icon: FileText, href: "/dashboard/content" },
+  { label: "AI", icon: Sparkles, href: "/dashboard/ai" },
+  { label: "Brain", icon: Brain, href: "/dashboard/brand-brain" },
+  { label: "Studio", icon: FileText, href: "/dashboard/content-studio" },
   { label: "Create", icon: PlusCircle, href: "/dashboard/create" },
   { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" },
-  { label: "Analytics", icon: BarChart2, href: "/dashboard/analytics" },
   { label: "Settings", icon: Settings, href: "/dashboard/settings" }
 ] as const;
 

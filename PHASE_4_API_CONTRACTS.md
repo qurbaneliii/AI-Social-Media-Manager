@@ -311,3 +311,67 @@ Request changes:
 - Calendar `ready_for_scheduling` only marks an internal draft as ready; it does not schedule on a platform.
 - Community reply approval never sends a reply.
 - `ai_community_reply_drafts.auto_reply_allowed` is constrained to `false`.
+
+## Phase 8 Workspace And Brand Brain Routes
+
+Phase 8 adds product workspace and Brand Brain contracts used by the broader AI Social Media Manager dashboard. These routes remain internal and do not publish, schedule, scrape, or send replies.
+
+Routes:
+
+- `GET /internal/ai/workspace-context`
+- `GET /internal/ai/brand-profile/{brand_id}`
+- `POST /internal/ai/brand-profile`
+- `PUT /internal/ai/brand-profile/{brand_id}`
+- `POST /internal/ai/brand-profile/validate`
+
+Brand profile upsert request:
+
+```json
+{
+  "profile": {
+    "brand_id": "brand-1",
+    "brand_name": "ARIA Labs",
+    "industry": "Marketing software",
+    "description": "Approval-based AI social media management workspace.",
+    "products_or_services": ["AI content workspace"],
+    "target_audience": ["marketing teams"],
+    "tone_of_voice": ["clear", "strategic"],
+    "brand_values": ["human control"],
+    "forbidden_topics": ["medical advice"],
+    "forbidden_words": ["guaranteed"],
+    "approved_claims": ["Helps teams review AI-generated social drafts."],
+    "competitors": [],
+    "platforms": ["linkedin"],
+    "visual_style": {},
+    "business_goals": ["increase content quality"],
+    "language_preferences": ["en"]
+  }
+}
+```
+
+Brand profile response:
+
+```json
+{
+  "profile": {},
+  "validation": {
+    "brand_id": "brand-1",
+    "completeness_score": 100,
+    "is_complete": true,
+    "required_fields": ["brand_name", "industry"],
+    "missing_required_fields": [],
+    "warnings": [],
+    "using_default_context": false
+  },
+  "product_context": {
+    "product_name": "ARIA",
+    "product_role": "AI Social Media Manager and Brand Manager",
+    "default_workflow_mode": "approval_based",
+    "supported_capabilities": ["strategy", "content_generation", "approval_workflow"],
+    "automation_boundaries": ["no_auto_publish", "no_auto_reply", "no_real_platform_scheduling"]
+  },
+  "persisted": true
+}
+```
+
+Missing persistence returns `503`. Missing stored brand profiles return `404`. Brand profile responses do not expose persistence-level fields such as `brand_profile_json`.

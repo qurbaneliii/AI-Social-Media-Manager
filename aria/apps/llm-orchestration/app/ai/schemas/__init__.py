@@ -1,6 +1,12 @@
 from .agent import AgentExecutionResult
 from .analytics import ReportingInsightReport, ReportingInsightRequest
-from .brand import BrandProfile
+from .brand import (
+    BrandProfile,
+    BrandProfileResponse,
+    BrandProfileValidationResult,
+    ProductContext,
+    validate_brand_profile_completeness,
+)
 from .calendar import CalendarPlanningRequest, ContentCalendarItem, ContentCalendarPlan
 from .community import CommunityManagementRequest, CommunityMessageAnalysis
 from .competitor import CompetitorAnalysisRequest, CompetitorInsightReport, CompetitorPostData
@@ -15,6 +21,10 @@ __all__ = [
     "AgentExecutionResult",
     "AIQualityReview",
     "BrandProfile",
+    "BrandProfileResponse",
+    "BrandProfileValidationResult",
+    "ProductContext",
+    "validate_brand_profile_completeness",
     "BrandStrategyPlan",
     "BrandStrategyRequest",
     "CalendarPlanningRequest",

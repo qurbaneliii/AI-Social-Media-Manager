@@ -4,16 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart2,
+  Brain,
   Calendar,
   ChevronsLeft,
   ChevronsRight,
+  Compass,
   FileText,
   Grid,
   LayoutDashboard,
   LogOut,
+  MessageSquareText,
   PlusCircle,
   ShieldCheck,
-  Settings
+  Settings,
+  Sparkles,
+  TrendingUp,
+  UsersRound
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -28,7 +34,22 @@ const navSections = [
     label: "Main",
     items: [
       { label: "Brand Dashboard", icon: LayoutDashboard, href: "/dashboard/brand" },
+      { label: "AI Workspace", icon: Sparkles, href: "/dashboard/ai" },
+      { label: "Brand Brain", icon: Brain, href: "/dashboard/brand-brain" },
       { label: "Analytics", icon: BarChart2, href: "/dashboard/analytics" }
+    ]
+  },
+  {
+    label: "AI Modules",
+    items: [
+      { label: "Content Studio", icon: FileText, href: "/dashboard/content-studio" },
+      { label: "Strategy", icon: Compass, href: "/dashboard/strategy" },
+      { label: "Trends", icon: TrendingUp, href: "/dashboard/trends" },
+      { label: "Competitors", icon: UsersRound, href: "/dashboard/competitors" },
+      { label: "AI Analyst", icon: BarChart2, href: "/dashboard/ai-analyst" },
+      { label: "Calendar AI", icon: Calendar, href: "/dashboard/calendar-ai" },
+      { label: "Community AI", icon: MessageSquareText, href: "/dashboard/community-ai" },
+      { label: "Reports AI", icon: Grid, href: "/dashboard/reports-ai" }
     ]
   },
   {

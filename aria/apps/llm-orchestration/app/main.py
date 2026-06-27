@@ -54,6 +54,13 @@ from ai.llm import LLMClient, LLMSettings
 from ai.memory import BrandProfileNotFoundError
 from ai.persistence import AIPersistenceRepository
 from ai.schemas.analytics import ReportingInsightReport, ReportingInsightRequest
+from ai.schemas.brand import (
+    BrandProfile,
+    BrandProfileResponse,
+    BrandProfileValidationResult,
+    ProductContext,
+    validate_brand_profile_completeness,
+)
 from ai.schemas.calendar import CalendarPlanningRequest, ContentCalendarPlan
 from ai.schemas.community import CommunityManagementRequest, CommunityMessageAnalysis
 from ai.schemas.competitor import CompetitorAnalysisRequest, CompetitorInsightReport
@@ -124,6 +131,15 @@ class DraftListResponse(ApprovalQueueResponse):
     pass
 
 
+class BrandProfileUpsertRequest(BaseModel):
+    profile: BrandProfile
+
+
+class BrandProfileValidationRequest(BaseModel):
+    profile: BrandProfile
+    using_default_context: bool = False
+
+
 def _get_cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGINS", "")
     if raw.strip():
@@ -169,8 +185,10 @@ class LiteLLMAdapter:
 
 class Dependencies:
     def __init__(self) -> None:
-        self.db = create_engine("postgresql+psycopg://postgres:postgres@localhost:5432/aria", pool_pre_ping=True)
-        self.cache = redis.Redis.from_url("redis://localhost:6379/0")
+        database_url = os.getenv("LEGACY_SQLALCHEMY_DATABASE_URL") or "sqlite+pysqlite:///:memory:"
+        redis_url = os.getenv("LEGACY_REDIS_URL", "redis://localhost:6379/0")
+        self.db = create_engine(database_url, pool_pre_ping=True)
+        self.cache = redis.Redis.from_url(redis_url)
         self.vector = self.db
         self.adapter = LiteLLMAdapter(
             {
@@ -244,6 +262,11 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
 
 
+@app.get("/internal/ai/workspace-context", response_model=ProductContext)
+def ai_get_workspace_context() -> ProductContext:
+    return ProductContext()
+
+
 def get_ai_orchestrator(request: Request) -> AIOrchestrator:
     db_pool = getattr(request.app.state, "db_pool", None)
     persistence_repository = AIPersistenceRepository(db_pool) if db_pool is not None else None
@@ -262,6 +285,54 @@ def get_persistence_repository(request: Request) -> AIPersistenceRepository:
 
 def get_approval_service(repository: AIPersistenceRepository = Depends(get_persistence_repository)) -> ApprovalService:
     return ApprovalService(repository)
+
+
+def _brand_profile_response(profile: BrandProfile, *, persisted: bool = True) -> BrandProfileResponse:
+    return BrandProfileResponse(
+        profile=profile,
+        validation=validate_brand_profile_completeness(profile),
+        persisted=persisted,
+    )
+
+
+@app.get("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
+async def ai_get_brand_profile(
+    brand_id: str,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> BrandProfileResponse:
+    profile = await repository.load_brand_profile(brand_id)
+    if profile is None:
+        raise BrandProfileNotFoundError(brand_id)
+    return _brand_profile_response(profile)
+
+
+@app.post("/internal/ai/brand-profile", response_model=BrandProfileResponse)
+async def ai_upsert_brand_profile(
+    payload: BrandProfileUpsertRequest,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> BrandProfileResponse:
+    await repository.save_brand_profile(payload.profile)
+    return _brand_profile_response(payload.profile)
+
+
+@app.put("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
+async def ai_update_brand_profile(
+    brand_id: str,
+    payload: BrandProfileUpsertRequest,
+    repository: AIPersistenceRepository = Depends(get_persistence_repository),
+) -> BrandProfileResponse:
+    if payload.profile.brand_id != brand_id:
+        raise HTTPException(status_code=400, detail="brand_id path parameter must match profile.brand_id.")
+    await repository.save_brand_profile(payload.profile)
+    return _brand_profile_response(payload.profile)
+
+
+@app.post("/internal/ai/brand-profile/validate", response_model=BrandProfileValidationResult)
+async def ai_validate_brand_profile(payload: BrandProfileValidationRequest) -> BrandProfileValidationResult:
+    return validate_brand_profile_completeness(
+        payload.profile,
+        using_default_context=payload.using_default_context,
+    )
 
 
 async def _apply_approval_action(

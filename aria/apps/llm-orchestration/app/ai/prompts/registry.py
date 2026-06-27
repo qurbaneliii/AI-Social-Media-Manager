@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 
 from ai.llm.types import LLMMessage
+from ai.schemas.brand import ProductContext
 from ai.schemas.content import ContentRequest, GeneratedContentPackage
 
 from .platform_prompts import PLATFORM_ADAPTATION_PROMPT_V1
@@ -32,7 +33,8 @@ class PromptTemplate:
 class PromptRegistry:
     """Versioned prompt access point for orchestration and agents."""
 
-    def __init__(self) -> None:
+    def __init__(self, product_context: ProductContext | None = None) -> None:
+        self.product_context = product_context or ProductContext()
         self._templates = {
             "brand_system:v1": PromptTemplate("brand_system", "v1", BRAND_SYSTEM_PROMPT_V1),
             "platform_adaptation:v1": PromptTemplate("platform_adaptation", "v1", PLATFORM_ADAPTATION_PROMPT_V1),
@@ -60,6 +62,7 @@ class PromptRegistry:
 
     def build_content_generation_messages(self, request: ContentRequest) -> list[LLMMessage]:
         context = {
+            "product_context": self.product_context.model_dump(mode="json"),
             "brand_profile": request.brand_profile.model_dump(),
             "platform_context": request.platform_context.model_dump(),
             "campaign_objective": request.campaign_objective,
@@ -81,6 +84,7 @@ class PromptRegistry:
         package: GeneratedContentPackage,
     ) -> list[LLMMessage]:
         payload = {
+            "product_context": self.product_context.model_dump(mode="json"),
             "brand_profile": request.brand_profile.model_dump(),
             "platform_context": request.platform_context.model_dump(),
             "generated_content_package": package.model_dump(mode="json", exclude={"quality_scores"}),
@@ -91,8 +95,15 @@ class PromptRegistry:
         ]
 
     def build_agent_messages(self, prompt_key: str, payload: dict) -> list[LLMMessage]:
+        payload_with_context = {
+            "product_context": self.product_context.model_dump(mode="json"),
+            **payload,
+        }
         return [
             LLMMessage(role="system", content=self.get("brand_system").content),
             LLMMessage(role="system", content=self.get("platform_adaptation").content),
-            LLMMessage(role="user", content=f"{self.get(prompt_key).content}\n\nContext JSON:\n{json.dumps(payload, default=str)}"),
+            LLMMessage(
+                role="user",
+                content=f"{self.get(prompt_key).content}\n\nContext JSON:\n{json.dumps(payload_with_context, default=str)}",
+            ),
         ]
