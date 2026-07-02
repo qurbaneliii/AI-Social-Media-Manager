@@ -1,5 +1,4 @@
-const requireEnv = (key: string): string => {
-  const value = process.env[key];
+const requireValue = (key: string, value: string | undefined): string => {
   if (!value) {
     throw new Error(`${key} is not configured`);
   }
@@ -7,11 +6,11 @@ const requireEnv = (key: string): string => {
 };
 
 export const getSupabasePublicConfig = () => ({
-  url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  url: requireValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
+  anonKey: requireValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 });
 
 export const getSupabaseServiceConfig = () => ({
-  url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  serviceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY")
+  url: requireValue("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
+  serviceRoleKey: requireValue("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY)
 });
