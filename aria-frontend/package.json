@@ -1,17 +1,19 @@
 {
   "name": "aria-frontend",
   "version": "1.0.0",
-  "homepage": "https://qurbaneliii.github.io/AI-Social-Media-Manager/",
   "private": true,
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "export": "next build",
+    "export": "NEXT_PUBLIC_IS_STATIC=true next build",
     "seed": "tsx scripts/seed.ts",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "postbuild": "node -e \"const fs=require('fs');fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/.nojekyll','')\""
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.50.4",
