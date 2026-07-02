@@ -78,27 +78,29 @@ The file `aria-frontend/vercel.json` mirrors these settings for the frontend pro
 
 ## Vercel Environment Variables
 
-Add these in Vercel Project Settings, scoped to Production and Preview as appropriate:
+Add these in Vercel Project Settings. Variables with `NEXT_PUBLIC_` are browser-visible and must never contain secrets.
 
-```bash
-NEXT_PUBLIC_APP_URL=https://<your-vercel-domain>
-NEXT_PUBLIC_API_BASE_URL=https://<backend-api-domain-or-empty-for-preview>
-NEXT_PUBLIC_API_URL=https://<backend-api-domain-or-empty-for-preview>
-NEXT_PUBLIC_AI_ORCHESTRATION_URL=https://<llm-orchestration-domain-or-empty>
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
-DATABASE_URL=<supabase-postgres-connection-string>
-JWT_SECRET=<long-random-secret>
-OPENAI_API_KEY=<openai-api-key>
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_REQUEST_TIMEOUT_MS=45000
-OPENAI_MAX_RETRIES=2
-ANTHROPIC_API_KEY=<anthropic-api-key-if-using-/api/generate>
-NEXT_PUBLIC_PREVIEW_MODE=false
-NEXT_PUBLIC_AI_REQUEST_TIMEOUT_MS=45000
-NEXT_PUBLIC_AI_REQUEST_RETRIES=2
-```
+| Variable | Required | Runtime | Exposure | Example |
+| --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Yes | Frontend | Public | `https://<your-vercel-domain>` |
+| `NEXT_PUBLIC_API_BASE_URL` | Required when external backend APIs are used | Frontend | Public | `https://<backend-api-domain>` |
+| `NEXT_PUBLIC_API_URL` | Optional legacy alias for older modules | Frontend | Public | `https://<backend-api-domain>` |
+| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Optional | Frontend | Public | `https://<llm-orchestration-domain>` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Required for Supabase REST/Auth/Storage clients | Frontend/server | Public | `https://<project-ref>.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required for browser Supabase access | Frontend | Public | `<supabase-anon-key>` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional until server routes use Supabase admin operations | Server route only | Secret | `<supabase-service-role-key>` |
+| `DATABASE_URL` | Required while custom Prisma/JWT auth is active | Server route/build | Secret | `<supabase-postgres-connection-string>` |
+| `JWT_SECRET` | Required while custom Prisma/JWT auth is active | Server route | Secret | `<long-random-secret>` |
+| `OPENAI_API_KEY` | Required for `app/api/ai/*` routes | Server route | Secret | `<openai-api-key>` |
+| `OPENAI_MODEL` | Optional | Server route | Public value, server-read | `gpt-4o-mini` |
+| `OPENAI_REQUEST_TIMEOUT_MS` | Optional | Server route | Public value, server-read | `45000` |
+| `OPENAI_MAX_RETRIES` | Optional | Server route | Public value, server-read | `2` |
+| `ANTHROPIC_API_KEY` | Required only for `/api/generate` | Server route | Secret | `<anthropic-api-key>` |
+| `NEXT_PUBLIC_PREVIEW_MODE` | Optional | Frontend | Public | `false` |
+| `NEXT_PUBLIC_AI_REQUEST_TIMEOUT_MS` | Optional | Frontend | Public | `45000` |
+| `NEXT_PUBLIC_AI_REQUEST_RETRIES` | Optional | Frontend | Public | `2` |
+
+Set `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_API_URL` to the same backend URL until the older `NEXT_PUBLIC_API_URL` usage is removed. For a frontend-only preview with mock data, set `NEXT_PUBLIC_PREVIEW_MODE=true` and leave external backend URLs pointed at safe non-production endpoints.
 
 Never add `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DATABASE_URL`, or `JWT_SECRET` with a `NEXT_PUBLIC_` prefix.
 
@@ -124,7 +126,8 @@ After Vercel deploys:
 2. Confirm `/login`, `/register`, `/overview`, `/posts/new`, `/scheduler`, and `/analytics` render.
 3. Exercise an AI generation route only after server-side AI keys are configured.
 4. Verify Supabase can read authenticated rows only for the signed-in user's company membership.
-5. Upload a media object to `media-assets` using a `<company_id>/...` path and confirm another user without membership cannot read it.
+5. Test first-user bootstrap: create an Auth user, insert `profiles.id = auth.uid()`, create a `companies.created_by = auth.uid()` row, then insert that user's first `memberships` row for the new company.
+6. Upload a media object to `media-assets` using a `<company_id>/...` path and confirm another user without membership cannot read it.
 
 ## Common Deployment Errors
 

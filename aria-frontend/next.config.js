@@ -2,6 +2,7 @@
 const isStaticExport = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 
 const nextConfig = {
+  outputFileTracingRoot: __dirname,
   images: {
     unoptimized: true
   },
