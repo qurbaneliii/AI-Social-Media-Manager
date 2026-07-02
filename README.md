@@ -3,6 +3,18 @@
 ## Documentation
 
 - [Full System Architecture](docs/full-system-architecture.md)
+- [Production Deployment Guide](DEPLOYMENT.md)
+
+## Deployment Snapshot
+
+The production deployment path is documented in `DEPLOYMENT.md`.
+
+- Vercel root directory: `aria-frontend`
+- Framework preset: Next.js
+- Install command: `npm ci`
+- Build command: `npm run build`
+- Output directory: `.next`
+- Supabase migrations: `supabase/migrations/`
 
 ## UX Improvements (aria-frontend)
 
