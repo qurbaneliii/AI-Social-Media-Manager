@@ -80,29 +80,45 @@ The file `aria-frontend/vercel.json` mirrors these settings for the frontend pro
 
 Add these in Vercel Project Settings. Variables with `NEXT_PUBLIC_` are browser-visible and must never contain secrets.
 
-| Variable | Required | Runtime | Exposure | Example |
-| --- | --- | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | Yes | Frontend | Public | `https://<your-vercel-domain>` |
-| `NEXT_PUBLIC_API_BASE_URL` | Required when external backend APIs are used | Frontend | Public | `https://<backend-api-domain>` |
-| `NEXT_PUBLIC_API_URL` | Optional legacy alias for older modules | Frontend | Public | `https://<backend-api-domain>` |
-| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Optional | Frontend | Public | `https://<llm-orchestration-domain>` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Required for Supabase REST/Auth/Storage clients | Frontend/server | Public | `https://<project-ref>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required for browser Supabase access | Frontend | Public | `<supabase-anon-key>` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Optional until server routes use Supabase admin operations | Server route only | Secret | `<supabase-service-role-key>` |
-| `DATABASE_URL` | Required while custom Prisma/JWT auth is active | Server route/build | Secret | `<supabase-postgres-connection-string>` |
-| `JWT_SECRET` | Required while custom Prisma/JWT auth is active | Server route | Secret | `<long-random-secret>` |
-| `OPENAI_API_KEY` | Required for `app/api/ai/*` routes | Server route | Secret | `<openai-api-key>` |
-| `OPENAI_MODEL` | Optional | Server route | Public value, server-read | `gpt-4o-mini` |
-| `OPENAI_REQUEST_TIMEOUT_MS` | Optional | Server route | Public value, server-read | `45000` |
-| `OPENAI_MAX_RETRIES` | Optional | Server route | Public value, server-read | `2` |
-| `ANTHROPIC_API_KEY` | Required only for `/api/generate` | Server route | Secret | `<anthropic-api-key>` |
-| `NEXT_PUBLIC_PREVIEW_MODE` | Optional | Frontend | Public | `false` |
-| `NEXT_PUBLIC_AI_REQUEST_TIMEOUT_MS` | Optional | Frontend | Public | `45000` |
-| `NEXT_PUBLIC_AI_REQUEST_RETRIES` | Optional | Frontend | Public | `2` |
+| Variable | Required | Runtime | Exposure | Vercel scope | Example |
+| --- | --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Yes | Frontend | Public | Production, Preview, Development | `https://<your-vercel-domain>` |
+| `NEXT_PUBLIC_API_BASE_URL` | Required when external backend APIs are used | Frontend | Public | Production, Preview, Development | `https://<backend-api-domain>` |
+| `NEXT_PUBLIC_API_URL` | Optional legacy alias for older modules | Frontend | Public | Production, Preview, Development | `https://<backend-api-domain>` |
+| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Optional | Frontend | Public | Production, Preview, Development | `https://<llm-orchestration-domain>` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Required for Supabase REST/Auth/Storage clients | Frontend/server | Public | Production, Preview, Development | `https://<project-ref>.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required for browser Supabase access | Frontend | Public | Production, Preview, Development | `<supabase-anon-key>` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional until server routes use Supabase admin operations | Server route only | Secret | Production only unless using a separate staging project for Preview | `<supabase-service-role-key>` |
+| `DATABASE_URL` | Required while custom Prisma/JWT auth is active | Server route/build | Secret | Production; Preview only with a separate staging database | `<supabase-postgres-connection-string>` |
+| `JWT_SECRET` | Required while custom Prisma/JWT auth is active | Server route | Secret | Production, Preview, Development | `<long-random-secret>` |
+| `OPENAI_API_KEY` | Required for `app/api/ai/*` routes | Server route | Secret | Production; Preview only with a non-production key | `<openai-api-key>` |
+| `OPENAI_MODEL` | Optional | Server route | Server-only value | Production, Preview, Development | `gpt-4o-mini` |
+| `OPENAI_REQUEST_TIMEOUT_MS` | Optional | Server route | Server-only value | Production, Preview, Development | `45000` |
+| `OPENAI_MAX_RETRIES` | Optional | Server route | Server-only value | Production, Preview, Development | `2` |
+| `ANTHROPIC_API_KEY` | Required only for `/api/generate` | Server route | Secret | Production; Preview only with a non-production key | `<anthropic-api-key>` |
+| `NEXT_PUBLIC_PREVIEW_MODE` | Optional | Frontend | Public | Preview, Development; set `false` or omit in Production | `false` |
+| `NEXT_PUBLIC_AI_REQUEST_TIMEOUT_MS` | Optional | Frontend | Public | Production, Preview, Development | `45000` |
+| `NEXT_PUBLIC_AI_REQUEST_RETRIES` | Optional | Frontend | Public | Production, Preview, Development | `2` |
 
 Set `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_API_URL` to the same backend URL until the older `NEXT_PUBLIC_API_URL` usage is removed. For a frontend-only preview with mock data, set `NEXT_PUBLIC_PREVIEW_MODE=true` and leave external backend URLs pointed at safe non-production endpoints.
 
 Never add `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DATABASE_URL`, or `JWT_SECRET` with a `NEXT_PUBLIC_` prefix.
+
+## Validation Commands
+
+From `aria-frontend`:
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run security:secrets
+npm run build
+npm run validate
+npm audit --omit=dev --audit-level=high
+```
+
+`npm run security:secrets` blocks accidental browser references to server-only variables and browser imports of `lib/supabase/server`.
 
 ## Local Frontend Validation
 
@@ -128,6 +144,25 @@ After Vercel deploys:
 4. Verify Supabase can read authenticated rows only for the signed-in user's company membership.
 5. Test first-user bootstrap: create an Auth user, insert `profiles.id = auth.uid()`, create a `companies.created_by = auth.uid()` row, then insert that user's first `memberships` row for the new company.
 6. Upload a media object to `media-assets` using a `<company_id>/...` path and confirm another user without membership cannot read it.
+
+## Merge Checklist
+
+Before merging this branch:
+
+- GitHub Actions `Validate Vercel Frontend` passes.
+- Vercel Preview Deployment for the branch passes with the `aria-frontend` root directory.
+- Supabase staging migrations apply with `supabase db push`.
+- First-user company bootstrap is tested in staging.
+- A second authenticated user without membership cannot read or write the first company data.
+- The private `media-assets` bucket rejects another company's object paths and unauthenticated reads.
+- Vercel Production/Preview/Development environment variables are configured with no real secrets committed.
+
+After merging:
+
+- Connect or confirm the Vercel project production branch is `main`.
+- Configure production Vercel environment variables.
+- Run Supabase production migrations deliberately after staging succeeds.
+- Deploy production, smoke test key routes, and monitor Vercel/Supabase logs.
 
 ## Common Deployment Errors
 

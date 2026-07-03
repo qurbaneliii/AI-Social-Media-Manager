@@ -4,6 +4,7 @@
 
 - [Full System Architecture](docs/full-system-architecture.md)
 - [Production Deployment Guide](DEPLOYMENT.md)
+- [Deployment Status and Merge Checklist](DEPLOYMENT_STATUS.md)
 
 ## Deployment Snapshot
 

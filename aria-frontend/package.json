@@ -13,7 +13,8 @@
     "seed": "tsx scripts/seed.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "validate": "npm run typecheck && npm run lint && npm run build",
+    "security:secrets": "node scripts/check-secret-exposure.mjs",
+    "validate": "npm run typecheck && npm run lint && npm run security:secrets && npm run build",
     "postinstall": "prisma generate"
   },
   "dependencies": {
