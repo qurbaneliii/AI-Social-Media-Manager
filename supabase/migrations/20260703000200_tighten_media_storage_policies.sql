@@ -30,7 +30,7 @@ with check (
   and exists (
     select 1
     from public.memberships m
-    where m.company_id = ((storage.foldername(name))[1])::uuid
+    where m.company_id = case when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then ((storage.foldername(name))[1])::uuid else null end
       and m.user_id = (select auth.uid())
   )
 );
