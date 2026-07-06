@@ -33,8 +33,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useDashboardFeed } from "@/hooks/useDashboardFeed";
 import { useDashboardStore } from "@/lib/store";
 
-const previewModeEnabled =
-  process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
+const previewModeEnabled = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true";
 
 const commandActions = [
   { label: "Brand Dashboard", href: "/dashboard/brand", shortcut: "G B" },
