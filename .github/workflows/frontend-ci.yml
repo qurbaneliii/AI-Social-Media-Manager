@@ -1,0 +1,40 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aria-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: aria-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build static frontend
+        run: |
+          mv app/api ../_api_disabled_for_pages
+          trap 'mv ../_api_disabled_for_pages app/api' EXIT
+          npm run build
+        env:
+          NEXT_PUBLIC_IS_STATIC: true
+          NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager
+          OPENAI_API_KEY: dummy
