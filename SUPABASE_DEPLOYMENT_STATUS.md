@@ -59,6 +59,8 @@ Database setup used the connected Supabase tool to create the project, run DDL m
 
 The backend deployment still needs a backend-only `DATABASE_URL`. The connected Supabase tool did not expose the database password/full connection string, so this value must be copied from the Supabase Dashboard Connect panel into Render only.
 
+`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible through connected tools. User must manually copy the backend-only connection string from Supabase Dashboard -> Connect and paste it into Render environment variables.`
+
 ## Warnings And Limitations
 
 - RLS is enabled with no public policies on the AI tables. This is intentional for the MVP demo because the browser should not access these tables directly.

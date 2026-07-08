@@ -89,7 +89,8 @@ The session had no Render deployment capability:
 - No Render MCP/app deployment tool was exposed.
 - `render` CLI is not installed.
 - No `RENDER_API_KEY` environment variable is present.
-- `BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible via connected tools. User must provide backend-only Supabase connection string in Render environment.`
+- `BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible through connected tools. User must manually copy the backend-only connection string from Supabase Dashboard -> Connect and paste it into Render environment variables.`
+- `BLOCKED_RENDER_TOOL_ACCESS: Render service creation/configuration/log access is not available through connected tools. User must manually create/configure Render Web Service.`
 
 Manual continuation path:
 

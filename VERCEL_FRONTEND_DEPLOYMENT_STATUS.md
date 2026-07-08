@@ -7,7 +7,17 @@ Date: 2026-07-08
 
 No verified Vercel production deployment URL was produced from this branch.
 
-GitHub/Vercel integration created this preview deployment from commit `3147f0cfa2e5976c175f9edbbc32fda273d5ba68`:
+GitHub/Vercel integration created preview deployments from this branch, but none are the requested frontend deployment.
+
+Latest checked deployment from commit `b287f8efae03ef8c841524871810b1f0b96f38ed`:
+
+- Project: `ai-social-media-manager-gl7x`
+- Deployment id: `dpl_3boLrFXUQs41un26ojfQ8nTXioyH`
+- Alias: `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
+- State: `READY`
+- Result: not usable as the MVP frontend because build logs show `Skipping cache upload because no files were prepared`.
+
+Earlier checked deployment from commit `3147f0cfa2e5976c175f9edbbc32fda273d5ba68`:
 
 - Project: `ai-social-media-manager-gl7x`
 - Deployment id: `dpl_4jVE8ni9jMNWueGRu5kN3CEZprib`
@@ -19,7 +29,8 @@ Existing Vercel context found through the connected Vercel tool:
 
 - Project `ai-social-media-manager`
   - Project id: `prj_jMasGlzupK0ArFjO3teilV7EZA2r`
-  - Latest production deployment state: `ERROR`
+  - Latest branch deployment state: `ERROR`
+  - Latest error: configured root directory `mainn` does not exist
   - Domain context: `ai-social-media-manager-phi.vercel.app`
 - Project `ai-social-media-manager-gl7x`
   - Project id: `prj_PHVqgNyhoeVW3pPVHMT5nVL6AJiC`
@@ -129,3 +140,4 @@ The session did not have non-interactive Vercel deployment/env write access:
 - No Vercel project-root/settings write tool was exposed.
 - No Vercel environment-variable write tool was exposed.
 - The Render backend URL is not available yet, so the required frontend API URL cannot be set.
+- `BLOCKED_VERCEL_TOOL_ACCESS: Vercel project/root-directory/env-var write operations are not available through connected tools. User must manually create/update Vercel project.`

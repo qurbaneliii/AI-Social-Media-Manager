@@ -65,7 +65,7 @@ No Render or Vercel environment variables were configured from this session beca
 
 Exact blocker:
 
-`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible via connected tools. User must provide backend-only Supabase connection string in Render environment.`
+`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible through connected tools. User must manually copy the backend-only connection string from Supabase Dashboard -> Connect and paste it into Render environment variables.`
 
 Environment variables documented for manual setup:
 

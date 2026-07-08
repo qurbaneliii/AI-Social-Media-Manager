@@ -24,7 +24,7 @@ Blocked through connected tools:
 
 Required blocker string:
 
-`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible via connected tools. User must provide backend-only Supabase connection string in Render environment.`
+`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible through connected tools. User must manually copy the backend-only connection string from Supabase Dashboard -> Connect and paste it into Render environment variables.`
 
 ## GitHub Verification
 
@@ -124,15 +124,17 @@ Existing Vercel project inspected:
 
 - Project: `ai-social-media-manager-gl7x`
 - Project id: `prj_PHVqgNyhoeVW3pPVHMT5nVL6AJiC`
-- Preview deployment id: `dpl_4jVE8ni9jMNWueGRu5kN3CEZprib`
+- Latest preview deployment id: `dpl_3boLrFXUQs41un26ojfQ8nTXioyH`
 - Alias: `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
 - State: `READY`
-- Commit: `3147f0cfa2e5976c175f9edbbc32fda273d5ba68`
+- Commit: `b287f8efae03ef8c841524871810b1f0b96f38ed`
 
 Verification:
 
-- `/dashboard/ai` returned Vercel `404`.
-- Build logs show Vercel built the repository root and completed in less than a second with no prepared files.
+- Build logs show Vercel built the repository root and completed with no prepared files.
+- Earlier `/dashboard/ai` check returned Vercel `404`; a later protected preview fetch redirected to Vercel SSO before route content could be inspected.
+
+Existing project `ai-social-media-manager` also auto-deployed this branch, but failed because the configured Vercel root directory `mainn` does not exist.
 
 Conclusion:
 
@@ -184,3 +186,5 @@ Vercel deployed route checks:
 3. Create/update Vercel project `aria-ai-social-media-manager-mvp` with root directory `aria-frontend`.
 4. Set Vercel `NEXT_PUBLIC_AI_ORCHESTRATION_URL` after the Render backend URL exists.
 5. Redeploy Vercel and then update Render `CORS_ORIGINS` to the exact Vercel URL.
+
+See `MANUAL_DEPLOYMENT_BRIDGE_STATUS.md` and `MANUAL_RENDER_VERCEL_DEPLOYMENT_CHECKLIST.md` for exact blocked actions, required user inputs, and verification steps.
