@@ -124,10 +124,10 @@ Existing Vercel project inspected:
 
 - Project: `ai-social-media-manager-gl7x`
 - Project id: `prj_PHVqgNyhoeVW3pPVHMT5nVL6AJiC`
-- Latest preview deployment id: `dpl_3boLrFXUQs41un26ojfQ8nTXioyH`
+- Latest preview deployment id: `dpl_DSo5cTNbG8XqFVk4sVt3s84d4xXZ`
 - Alias: `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
 - State: `READY`
-- Commit: `b287f8efae03ef8c841524871810b1f0b96f38ed`
+- Commit: `9e59c99f7232f77e1e0c8bdcc3a57587f56121ff`
 
 Verification:
 

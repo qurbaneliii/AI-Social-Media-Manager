@@ -35,14 +35,14 @@ No verified frontend production URL was produced from this branch.
 Preview checked:
 
 - `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
-- Deployment id: `dpl_4jVE8ni9jMNWueGRu5kN3CEZprib`
+- Deployment id: `dpl_DSo5cTNbG8XqFVk4sVt3s84d4xXZ`
 - State: `READY`
 - Verification: `/dashboard/ai` returned Vercel `404`
 - Build log: Vercel built the repo root and skipped cache upload because no files were prepared
 
 Existing Vercel projects were inspected but not accepted as final deployment:
 
-- `ai-social-media-manager`: latest production deployment is `ERROR`.
+- `ai-social-media-manager`: latest branch deployment is `ERROR` because the configured root directory `mainn` does not exist.
 - `ai-social-media-manager-gl7x`: latest deployment metadata says `READY`, but live root and `/dashboard/ai` returned `404`.
 
 ## Backend Render URL

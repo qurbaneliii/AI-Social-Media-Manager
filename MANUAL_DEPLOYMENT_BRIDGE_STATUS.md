@@ -100,10 +100,10 @@ Why blocked:
 - No tool was exposed to create the requested project, update root directory, or set environment variables.
 - The Render backend URL does not exist yet, so `NEXT_PUBLIC_AI_ORCHESTRATION_URL` cannot be finalized.
 
-Latest Vercel evidence:
+Latest Vercel evidence from commit `9e59c99f7232f77e1e0c8bdcc3a57587f56121ff`:
 
-- Project `ai-social-media-manager` latest branch deployment `dpl_HX572bRLdsQcgf5T1k7TFZLVJKEZ` failed because the configured root directory `mainn` does not exist.
-- Project `ai-social-media-manager-gl7x` latest branch deployment `dpl_3boLrFXUQs41un26ojfQ8nTXioyH` is `READY`, but build logs show no app files were prepared.
+- Project `ai-social-media-manager` latest branch deployment `dpl_AamMC7bbRYj4JBFn4vKFEgsVApo4` failed because the configured root directory `mainn` does not exist.
+- Project `ai-social-media-manager-gl7x` latest branch deployment `dpl_DSo5cTNbG8XqFVk4sVt3s84d4xXZ` is `READY`, but build logs show no app files were prepared.
 - Neither existing project is a verified deployment of the `aria-frontend` Next.js app.
 
 Exact user input/action needed:

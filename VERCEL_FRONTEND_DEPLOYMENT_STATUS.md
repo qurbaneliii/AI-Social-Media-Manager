@@ -9,13 +9,21 @@ No verified Vercel production deployment URL was produced from this branch.
 
 GitHub/Vercel integration created preview deployments from this branch, but none are the requested frontend deployment.
 
-Latest checked deployment from commit `b287f8efae03ef8c841524871810b1f0b96f38ed`:
+Latest checked deployment from commit `9e59c99f7232f77e1e0c8bdcc3a57587f56121ff`:
 
 - Project: `ai-social-media-manager-gl7x`
-- Deployment id: `dpl_3boLrFXUQs41un26ojfQ8nTXioyH`
+- Deployment id: `dpl_DSo5cTNbG8XqFVk4sVt3s84d4xXZ`
 - Alias: `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
 - State: `READY`
 - Result: not usable as the MVP frontend because build logs show `Skipping cache upload because no files were prepared`.
+
+Latest checked failing deployment from commit `9e59c99f7232f77e1e0c8bdcc3a57587f56121ff`:
+
+- Project: `ai-social-media-manager`
+- Deployment id: `dpl_AamMC7bbRYj4JBFn4vKFEgsVApo4`
+- Alias: `https://ai-social-media-manager-git-deploy-b62466-qurbaneliiis-projects.vercel.app`
+- State: `ERROR`
+- Result: not usable as the MVP frontend because build logs show the configured root directory `mainn` does not exist.
 
 Earlier checked deployment from commit `3147f0cfa2e5976c175f9edbbc32fda273d5ba68`:
 
@@ -34,7 +42,7 @@ Existing Vercel context found through the connected Vercel tool:
   - Domain context: `ai-social-media-manager-phi.vercel.app`
 - Project `ai-social-media-manager-gl7x`
   - Project id: `prj_PHVqgNyhoeVW3pPVHMT5nVL6AJiC`
-  - Latest production deployment state: `READY`
+  - Latest branch deployment state: `READY`
   - Domain context: `ai-social-media-manager-gl7x.vercel.app`
   - Verification result: root and `/dashboard/ai` returned Vercel `404`, so it is not a verified ARIA MVP deployment.
 
