@@ -4,7 +4,7 @@ Do not commit real secrets. Do not put backend secrets in frontend public variab
 
 ## Render Backend
 
-Service: `aria-llm-orchestration`
+Service: `aria-ai-orchestration-mvp`
 
 | Variable | Required | Value for free MVP | Notes |
 | --- | --- | --- | --- |

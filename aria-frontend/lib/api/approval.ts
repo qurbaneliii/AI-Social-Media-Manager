@@ -264,7 +264,22 @@ function resolveApprovalApiBase(): string {
       return value.replace(/\/$/, "");
     }
   }
-  return "http://localhost:8000";
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+  }
+
+  throw new ApprovalApiError(
+    "NEXT_PUBLIC_AI_ORCHESTRATION_URL is not configured.",
+    0,
+    {
+      required_env: "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
+      alternate_env: ["NEXT_PUBLIC_API_BASE_URL", "NEXT_PUBLIC_API_URL"]
+    }
+  );
 }
 
 function buildQuery(filters: ApprovalQueueFilters = {}): string {

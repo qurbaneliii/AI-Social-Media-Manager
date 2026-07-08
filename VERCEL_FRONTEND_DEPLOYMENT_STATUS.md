@@ -1,11 +1,19 @@
 # Vercel Frontend Deployment Status
 
-Status: Not deployed/redeployed from this session.
+Status: Preview deployment exists, but target frontend is not correctly deployed.
 Date: 2026-07-08
 
 ## Vercel Project URL
 
-No new verified Vercel deployment URL was produced from this branch.
+No verified Vercel production deployment URL was produced from this branch.
+
+GitHub/Vercel integration created this preview deployment from commit `3147f0cfa2e5976c175f9edbbc32fda273d5ba68`:
+
+- Project: `ai-social-media-manager-gl7x`
+- Deployment id: `dpl_4jVE8ni9jMNWueGRu5kN3CEZprib`
+- Alias: `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
+- State: `READY`
+- Result: not usable as the MVP frontend because the build log shows the repo root was built and no files were prepared; `/dashboard/ai` returned Vercel `404`.
 
 Existing Vercel context found through the connected Vercel tool:
 
@@ -118,6 +126,6 @@ This is demo access only. It is not production authentication.
 
 The session did not have non-interactive Vercel deployment/env write access:
 
-- `npx vercel@latest whoami` did not complete as authenticated.
+- No Vercel project-root/settings write tool was exposed.
 - No Vercel environment-variable write tool was exposed.
 - The Render backend URL is not available yet, so the required frontend API URL cannot be set.

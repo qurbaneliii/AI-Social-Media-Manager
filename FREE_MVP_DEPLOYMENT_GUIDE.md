@@ -23,8 +23,8 @@ Completed:
 
 Not completed:
 
-- Render backend service was not created from this session.
-- Vercel frontend was not redeployed from this branch.
+- Render backend service was not created from this session because Render write-capable tools/API credentials were unavailable.
+- Vercel GitHub integration created a preview for an existing project, but it built the repo root and returned `404` for `/dashboard/ai`.
 - Final CORS URL was not set.
 - End-to-end deployed dashboard-to-backend verification was not completed.
 
@@ -40,7 +40,7 @@ https://dashboard.render.com/blueprint/new?repo=https://github.com/qurbaneliii/A
 
 Expected service:
 
-- Name: `aria-llm-orchestration`
+- Name: `aria-ai-orchestration-mvp`
 - Type: Web Service
 - Runtime: Python
 - Plan: Free
@@ -50,7 +50,7 @@ Expected service:
 Build command:
 
 ```bash
-pip install --upgrade pip && pip install -e .
+pip install -U pip && pip install -e .
 ```
 
 Start command:

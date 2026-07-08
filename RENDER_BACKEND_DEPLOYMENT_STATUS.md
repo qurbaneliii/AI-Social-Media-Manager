@@ -1,6 +1,6 @@
 # Render Backend Deployment Status
 
-Status: Not deployed from this session.
+Status: Not deployed from the automated tool pass.
 Date: 2026-07-08
 
 ## Backend Service URL
@@ -9,14 +9,14 @@ No Render backend URL was produced because Render deployment write access was no
 
 Planned service name:
 
-- `aria-llm-orchestration`
+- `aria-ai-orchestration-mvp`
 
 ## Build Command
 
 Configured in `render.yaml`:
 
 ```bash
-pip install --upgrade pip && pip install -e .
+pip install -U pip && pip install -e .
 ```
 
 ## Start Command
@@ -89,11 +89,12 @@ The session had no Render deployment capability:
 - No Render MCP/app deployment tool was exposed.
 - `render` CLI is not installed.
 - No `RENDER_API_KEY` environment variable is present.
+- `BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible via connected tools. User must provide backend-only Supabase connection string in Render environment.`
 
 Manual continuation path:
 
 1. Open Render Blueprint creation for this repo.
 2. Use the committed `render.yaml`.
 3. Set `DATABASE_URL` from Supabase Dashboard.
-4. Deploy `aria-llm-orchestration`.
+4. Deploy `aria-ai-orchestration-mvp`.
 5. Record the resulting backend URL and update Vercel/Render CORS.

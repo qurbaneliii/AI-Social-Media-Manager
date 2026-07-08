@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: aria-llm-orchestration
+    name: aria-ai-orchestration-mvp
     runtime: python
     plan: free
     region: oregon
     branch: deploy/mvp-vercel-render-supabase
     rootDir: aria/apps/llm-orchestration
-    buildCommand: pip install --upgrade pip && pip install -e .
+    buildCommand: pip install -U pip && pip install -e .
     startCommand: PYTHONPATH=app uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true

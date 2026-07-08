@@ -21,7 +21,7 @@ Actual status from this session:
 - Backend local tests: completed and passing.
 - Frontend local typecheck/build: completed and passing.
 - Render backend deployment: blocked by missing Render auth/tooling and missing backend `DATABASE_URL` secret.
-- Vercel frontend deployment: blocked by missing authenticated deploy/env write access and missing Render backend URL.
+- Vercel frontend deployment: a preview was created by the GitHub integration, but it is not a valid frontend deployment because the existing Vercel project built the repo root and returned `404` for `/dashboard/ai`.
 - End-to-end deployed verification: not completed.
 
 ## GitHub Branch
@@ -31,6 +31,14 @@ Actual status from this session:
 ## Frontend Vercel URL
 
 No verified frontend production URL was produced from this branch.
+
+Preview checked:
+
+- `https://ai-social-media-manager-gl7x-git-d-7b3aa9-qurbaneliiis-projects.vercel.app`
+- Deployment id: `dpl_4jVE8ni9jMNWueGRu5kN3CEZprib`
+- State: `READY`
+- Verification: `/dashboard/ai` returned Vercel `404`
+- Build log: Vercel built the repo root and skipped cache upload because no files were prepared
 
 Existing Vercel projects were inspected but not accepted as final deployment:
 
@@ -54,6 +62,10 @@ No backend Render URL was produced from this session.
 ## Environment Variables Configured
 
 No Render or Vercel environment variables were configured from this session because provider write access/secrets were not available.
+
+Exact blocker:
+
+`BLOCKED_SECRET_REQUIRED: Supabase DATABASE_URL is not accessible via connected tools. User must provide backend-only Supabase connection string in Render environment.`
 
 Environment variables documented for manual setup:
 
@@ -173,7 +185,7 @@ This is not production-ready until these are designed, implemented, and verified
 - Render deployment is unverified until a service is created.
 - Vercel deployment is unverified until the frontend is deployed with the Render URL.
 - CORS is not finalized until the Vercel production URL exists.
-- Existing Vercel projects are not reliable evidence of this MVP deployment.
+- Existing Vercel projects are not reliable evidence of this MVP deployment until the project root is set to `aria-frontend` and `NEXT_PUBLIC_AI_ORCHESTRATION_URL` is configured.
 
 ## Recommended Next Steps
 

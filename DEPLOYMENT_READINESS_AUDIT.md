@@ -144,7 +144,7 @@ PYTHONPATH=aria/apps/llm-orchestration/app AI_MOCK_MODE=true OPENAI_API_KEY=repl
 Render backend build command:
 
 ```bash
-pip install --upgrade pip && pip install -e .
+pip install -U pip && pip install -e .
 ```
 
 ## Start Commands
@@ -196,3 +196,11 @@ Still needed outside the repo:
 - Configure Vercel root directory as `aria-frontend`.
 - Set Vercel `NEXT_PUBLIC_AI_ORCHESTRATION_URL` to the Render URL.
 - Redeploy both services and verify end-to-end dashboard calls.
+
+## Automation Follow-Up Findings
+
+- GitHub PR #7 triggered a Vercel preview for existing project `ai-social-media-manager-gl7x`.
+- That Vercel deployment reached `READY`, but it built the repo root and prepared no app files, so `/dashboard/ai` returned Vercel `404`.
+- No connected Render MCP service tools were exposed in this session.
+- No connected Vercel project-setting or environment-variable write tools were exposed in this session.
+- Supabase connector does not expose the database password/full `DATABASE_URL`.
