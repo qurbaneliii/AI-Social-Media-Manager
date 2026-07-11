@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from ai.approval.queue import content_queue_item_from_row
 
 
-def _content_row() -> dict[str, Any]:
-    return {
+def _content_row(**overrides: Any) -> dict[str, Any]:
+    row = {
         "draft_id": "content-1",
         "brand_id": "brand-1",
         "platform": "linkedin",
@@ -37,10 +37,12 @@ def _content_row() -> dict[str, Any]:
         "model": "gpt-4o-mini",
         "mock_mode": True,
     }
+    row.update(overrides)
+    return row
 
 
-def _calendar_row() -> dict[str, Any]:
-    return {
+def _calendar_row(**overrides: Any) -> dict[str, Any]:
+    row = {
         "calendar_item_id": "calendar-1",
         "brand_id": "brand-1",
         "platform": "linkedin",
@@ -56,10 +58,12 @@ def _calendar_row() -> dict[str, Any]:
         "created_at": datetime.now(UTC),
         "updated_at": datetime.now(UTC),
     }
+    row.update(overrides)
+    return row
 
 
-def _community_row() -> dict[str, Any]:
-    return {
+def _community_row(**overrides: Any) -> dict[str, Any]:
+    row = {
         "reply_draft_id": "reply-1",
         "brand_id": "brand-1",
         "original_message_text": "Can you help me with this order?",
@@ -76,10 +80,12 @@ def _community_row() -> dict[str, Any]:
         "created_at": datetime.now(UTC),
         "updated_at": datetime.now(UTC),
     }
+    row.update(overrides)
+    return row
 
 
-def _report_row() -> dict[str, Any]:
-    return {
+def _report_row(**overrides: Any) -> dict[str, Any]:
+    row = {
         "report_draft_id": "report-1",
         "brand_id": "brand-1",
         "report_type": "weekly",
@@ -89,20 +95,66 @@ def _report_row() -> dict[str, Any]:
         "created_at": datetime.now(UTC),
         "updated_at": datetime.now(UTC),
     }
+    row.update(overrides)
+    return row
 
 
 class QueueRepository:
+    def __init__(
+        self,
+        *,
+        content_rows: list[dict[str, Any]] | None = None,
+        calendar_rows: list[dict[str, Any]] | None = None,
+        community_rows: list[dict[str, Any]] | None = None,
+        report_rows: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.content_rows = [_content_row()] if content_rows is None else content_rows
+        self.calendar_rows = [_calendar_row()] if calendar_rows is None else calendar_rows
+        self.community_rows = [_community_row()] if community_rows is None else community_rows
+        self.report_rows = [_report_row()] if report_rows is None else report_rows
+
     async def list_content_drafts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        return [_content_row()]
+        return self._list(self.content_rows, *args, **kwargs)
 
     async def list_calendar_drafts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        return [_calendar_row()]
+        return self._list(self.calendar_rows, *args, **kwargs)
 
     async def list_community_reply_drafts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        return [_community_row()]
+        return self._list(self.community_rows, *args, **kwargs)
 
     async def list_report_drafts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        return [_report_row()]
+        return self._list(self.report_rows, *args, **kwargs)
+
+    def _list(self, rows: list[dict[str, Any]], *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        params = {
+            "brand_id": None,
+            "status": None,
+            "platform": None,
+            "limit": 100,
+            "offset": 0,
+            "created_after": None,
+            "created_before": None,
+        }
+        for key, value in zip(params, args, strict=False):
+            params[key] = value
+        params.update(kwargs)
+
+        filtered = []
+        for row in rows:
+            if params["brand_id"] and row.get("brand_id") != params["brand_id"]:
+                continue
+            if params["status"] and row.get("approval_status") != params["status"]:
+                continue
+            if params["platform"] and row.get("platform") != params["platform"]:
+                continue
+            if params["created_after"] and row.get("created_at") < params["created_after"]:
+                continue
+            if params["created_before"] and row.get("created_at") > params["created_before"]:
+                continue
+            filtered.append(row)
+
+        filtered.sort(key=lambda row: row.get("created_at") or datetime.min.replace(tzinfo=UTC), reverse=True)
+        return filtered[params["offset"] : params["offset"] + params["limit"]]
 
 
 def test_content_queue_dto_hides_raw_json_blobs() -> None:
@@ -150,6 +202,52 @@ def test_approval_queue_invalid_filter_returns_400() -> None:
 
         assert response.status_code == 400
         assert "Invalid status" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_aggregate_queue_skips_object_types_where_status_does_not_apply() -> None:
+    from main import app, get_persistence_repository
+
+    app.dependency_overrides[get_persistence_repository] = lambda: QueueRepository(
+        content_rows=[],
+        calendar_rows=[],
+        community_rows=[_community_row(approval_status="escalated")],
+        report_rows=[],
+    )
+    try:
+        client = TestClient(app)
+        response = client.get("/internal/ai/approval/queue?brand_id=brand-1&status=escalated")
+
+        payload = response.json()
+        assert response.status_code == 200
+        assert payload["count"] == 1
+        assert payload["items"][0]["object_type"] == "community_reply"
+        assert payload["items"][0]["approval_status"] == "escalated"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_aggregate_queue_paginates_after_global_sort() -> None:
+    from main import app, get_persistence_repository
+
+    app.dependency_overrides[get_persistence_repository] = lambda: QueueRepository(
+        content_rows=[
+            _content_row(draft_id="content-new", created_at=datetime(2026, 6, 5, tzinfo=UTC)),
+            _content_row(draft_id="content-old", created_at=datetime(2026, 6, 1, tzinfo=UTC)),
+        ],
+        calendar_rows=[_calendar_row(calendar_item_id="calendar-1", created_at=datetime(2026, 6, 4, tzinfo=UTC))],
+        community_rows=[_community_row(reply_draft_id="reply-1", created_at=datetime(2026, 6, 3, tzinfo=UTC))],
+        report_rows=[_report_row(report_draft_id="report-1", created_at=datetime(2026, 6, 2, tzinfo=UTC))],
+    )
+    try:
+        client = TestClient(app)
+        response = client.get("/internal/ai/approval/queue?brand_id=brand-1&limit=2&offset=1")
+
+        payload = response.json()
+        assert response.status_code == 200
+        assert payload["count"] == 5
+        assert [item["object_id"] for item in payload["items"]] == ["calendar-1", "reply-1"]
     finally:
         app.dependency_overrides.clear()
 

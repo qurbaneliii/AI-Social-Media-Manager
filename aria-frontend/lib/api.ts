@@ -6,17 +6,16 @@ import type {
   CompanyProfileForm,
   GeneratePostForm,
   GeneratedPackage,
-  ImportResponse,
   OnboardingStatus,
   Platform,
   PostResult,
-  PresignResponse,
   ScheduleRequest,
   ScheduleResponse,
   ScheduleStatus
 } from "@/types";
 import { IS_STATIC } from "@/lib/isStatic";
 import { PREVIEW_COMPANY_ID, PREVIEW_MODE_MESSAGE, mockGeneratedContent } from "@/lib/mockData";
+import { resolvePublicApiBase } from "@/lib/api/base";
 
 export interface ApiErrorPayload {
   code: string;
@@ -84,33 +83,7 @@ export interface SaveDraftResponse {
   created_at?: string;
 }
 
-const API_BASE_RAW = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-const API_BASE = API_BASE_RAW.replace(/\/$/, "");
-
-const resolveApiBase = (): string => {
-  if (API_BASE) {
-    return API_BASE;
-  }
-
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${protocol}//${hostname}:8000`;
-    }
-  }
-
-  throw new ApiError({
-    code: "API_BASE_URL_MISSING",
-    message: "NEXT_PUBLIC_API_BASE_URL is not configured.",
-    retryable: false,
-    details: {
-      required_env: "NEXT_PUBLIC_API_BASE_URL",
-      alternate_env: "NEXT_PUBLIC_API_URL"
-    }
-  });
-};
-
-const toApiUrl = (url: string): string => `${resolveApiBase()}${url}`;
+const toApiUrl = (url: string): string => `${resolvePublicApiBase()}${url}`;
 
 const previewPostId = "preview-post-id";
 
@@ -322,31 +295,6 @@ export const updateVocabulary = async (
   });
 };
 
-export const importPostArchive = async (company_id: string, file: File): Promise<ImportResponse> => {
-  if (isPreviewMode()) {
-    return {
-      staged_count: 0,
-      skipped_count: 0,
-      import_id: "preview-import"
-    };
-  }
-
-  const token = getTokenFromSession();
-  const form = new FormData();
-  form.append("file", file);
-  const response = await fetch(toApiUrl(`/v1/onboarding/import?company_id=${encodeURIComponent(company_id)}`), {
-    method: "POST",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: form
-  });
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-  return (await response.json()) as ImportResponse;
-};
-
 export const triggerQualityCheck = async (company_id: string): Promise<{ task_id: string }> => {
   if (isPreviewMode()) {
     return { task_id: "preview-task-id" };
@@ -370,70 +318,6 @@ export const getOnboardingStatus = async (company_id: string): Promise<Onboardin
 
   return requestJson(`/v1/onboarding/status/${company_id}`, {
     method: "GET"
-  });
-};
-
-export const presignUpload = async (
-  company_id: string,
-  filename: string,
-  content_type: string
-): Promise<PresignResponse> => {
-  if (isPreviewMode()) {
-    throw new ApiError({
-      code: "PREVIEW_MODE_ONLY",
-      message: PREVIEW_MODE_MESSAGE,
-      retryable: false
-    });
-  }
-
-  return requestJson("/v1/media/presign", {
-    method: "POST",
-    body: JSON.stringify({ company_id, filename, content_type })
-  });
-};
-
-export const confirmUpload = async (asset_id: string): Promise<void> => {
-  if (isPreviewMode()) {
-    return;
-  }
-
-  await requestJson<void>(`/v1/media/confirm/${asset_id}`, {
-    method: "POST"
-  });
-};
-
-export const uploadToPresignedUrl = async (
-  url: string,
-  file: File,
-  onProgress: (pct: number) => void
-): Promise<void> => {
-  if (isPreviewMode()) {
-    throw new ApiError({
-      code: "PREVIEW_MODE_ONLY",
-      message: PREVIEW_MODE_MESSAGE,
-      retryable: false
-    });
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    xhr.setRequestHeader("Content-Type", file.type);
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) {
-        onProgress(Math.round((ev.loaded / ev.total) * 100));
-      }
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(100);
-        resolve();
-      } else {
-        reject(new ApiError({ code: "S3_UPLOAD_FAILED", message: "Upload failed", retryable: true }));
-      }
-    };
-    xhr.onerror = () => reject(new ApiError({ code: "S3_UPLOAD_FAILED", message: "Upload failed", retryable: true }));
-    xhr.send(file);
   });
 };
 

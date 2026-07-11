@@ -8,18 +8,16 @@ from typing import Any, Literal
 
 import httpx
 import redis
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ai.agents import AIOrchestrator
 from ai.approval import (
     ApprovalAction,
-    ApprovalAuditEvent,
     ApprovalDecision,
     ApprovalObjectType,
     ApprovalResult,
@@ -50,17 +48,9 @@ from ai.approval.queue import (
     report_queue_item_from_row,
 )
 from ai.approval.service import ApprovalService
-from ai.llm import LLMClient, LLMSettings
 from ai.memory import BrandProfileNotFoundError
 from ai.persistence import AIPersistenceRepository
 from ai.schemas.analytics import ReportingInsightReport, ReportingInsightRequest
-from ai.schemas.brand import (
-    BrandProfile,
-    BrandProfileResponse,
-    BrandProfileValidationResult,
-    ProductContext,
-    validate_brand_profile_completeness,
-)
 from ai.schemas.calendar import CalendarPlanningRequest, ContentCalendarPlan
 from ai.schemas.community import CommunityManagementRequest, CommunityMessageAnalysis
 from ai.schemas.competitor import CompetitorAnalysisRequest, CompetitorInsightReport
@@ -70,6 +60,11 @@ from ai.schemas.hashtag import HashtagRecommendation, HashtagRecommendationReque
 from ai.schemas.strategy import BrandStrategyPlan, BrandStrategyRequest
 from ai.schemas.trend import TrendInsightReport, TrendResearchRequest
 from ai.schemas.visual import VisualConceptPackage, VisualConceptRequest
+from api.dependencies import get_ai_orchestrator, get_approval_service, get_persistence_repository
+from api.routers.public_runtime import PUBLIC_POST_STORE, PUBLIC_SCHEDULE_STORE, router as public_runtime_router
+from api.routers.workspace import router as workspace_router
+
+__all__ = ["app", "PUBLIC_POST_STORE", "PUBLIC_SCHEDULE_STORE"]
 
 
 class Message(BaseModel):
@@ -131,13 +126,15 @@ class DraftListResponse(ApprovalQueueResponse):
     pass
 
 
-class BrandProfileUpsertRequest(BaseModel):
-    profile: BrandProfile
+class ContentRefinementRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+    instruction: str = Field(min_length=1, max_length=500)
 
 
-class BrandProfileValidationRequest(BaseModel):
-    profile: BrandProfile
-    using_default_context: bool = False
+class ContentRefinementResponse(BaseModel):
+    improved: str
+    mock_mode: bool = True
+    route: str = "/internal/ai/content/refine"
 
 
 def _get_cors_origins() -> list[str]:
@@ -153,33 +150,23 @@ class LiteLLMAdapter:
     def __init__(self, provider_keys: dict[str, str | None]) -> None:
         self.provider_keys = provider_keys
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
     async def chat(self, provider: str, model: str, messages: list[Message], response_format: str = "json") -> dict[str, Any]:
         key = self.provider_keys.get(provider)
         prompt = "\n".join([f"{m.role}: {m.content}" for m in messages])
 
-        # A deterministic fallback path keeps service behavior stable when external model keys are absent.
-        if not key:
-            return {
-                "provider_used": provider,
-                "model_used": model,
-                "output": {
-                    "summary": prompt[:200],
-                    "variants": 3,
-                }
-                if response_format == "json"
-                else prompt[:200],
-                "token_usage": {"input": max(1, len(prompt) // 4), "output": 96},
-            }
-
+        if key:
+            raise RuntimeError("Legacy LiteLLMAdapter is demo-only and must not handle configured provider keys.")
         return {
-            "provider_used": provider,
+            "provider_used": "demo",
             "model_used": model,
             "output": {
                 "summary": prompt[:200],
                 "variants": 3,
-            },
-            "token_usage": {"input": max(1, len(prompt) // 4), "output": 96},
+            }
+            if response_format == "json"
+            else prompt[:200],
+            "mock_mode": True,
+            "token_usage": None,
         }
 
 
@@ -229,6 +216,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 FastAPIInstrumentor.instrument_app(app)
+app.include_router(public_runtime_router)
+app.include_router(workspace_router)
 
 
 @app.exception_handler(BrandProfileNotFoundError)
@@ -260,79 +249,6 @@ async def invalid_approval_transition_handler(request: Request, exc: InvalidAppr
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
-
-
-@app.get("/internal/ai/workspace-context", response_model=ProductContext)
-def ai_get_workspace_context() -> ProductContext:
-    return ProductContext()
-
-
-def get_ai_orchestrator(request: Request) -> AIOrchestrator:
-    db_pool = getattr(request.app.state, "db_pool", None)
-    persistence_repository = AIPersistenceRepository(db_pool) if db_pool is not None else None
-    return AIOrchestrator(
-        llm_client=LLMClient(LLMSettings()),
-        persistence_repository=persistence_repository,
-    )
-
-
-def get_persistence_repository(request: Request) -> AIPersistenceRepository:
-    db_pool = getattr(request.app.state, "db_pool", None)
-    if db_pool is None:
-        raise HTTPException(status_code=503, detail="AI persistence database pool is not configured.")
-    return AIPersistenceRepository(db_pool)
-
-
-def get_approval_service(repository: AIPersistenceRepository = Depends(get_persistence_repository)) -> ApprovalService:
-    return ApprovalService(repository)
-
-
-def _brand_profile_response(profile: BrandProfile, *, persisted: bool = True) -> BrandProfileResponse:
-    return BrandProfileResponse(
-        profile=profile,
-        validation=validate_brand_profile_completeness(profile),
-        persisted=persisted,
-    )
-
-
-@app.get("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
-async def ai_get_brand_profile(
-    brand_id: str,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    profile = await repository.load_brand_profile(brand_id)
-    if profile is None:
-        raise BrandProfileNotFoundError(brand_id)
-    return _brand_profile_response(profile)
-
-
-@app.post("/internal/ai/brand-profile", response_model=BrandProfileResponse)
-async def ai_upsert_brand_profile(
-    payload: BrandProfileUpsertRequest,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    await repository.save_brand_profile(payload.profile)
-    return _brand_profile_response(payload.profile)
-
-
-@app.put("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
-async def ai_update_brand_profile(
-    brand_id: str,
-    payload: BrandProfileUpsertRequest,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    if payload.profile.brand_id != brand_id:
-        raise HTTPException(status_code=400, detail="brand_id path parameter must match profile.brand_id.")
-    await repository.save_brand_profile(payload.profile)
-    return _brand_profile_response(payload.profile)
-
-
-@app.post("/internal/ai/brand-profile/validate", response_model=BrandProfileValidationResult)
-async def ai_validate_brand_profile(payload: BrandProfileValidationRequest) -> BrandProfileValidationResult:
-    return validate_brand_profile_completeness(
-        payload.profile,
-        using_default_context=payload.using_default_context,
-    )
 
 
 async def _apply_approval_action(
@@ -384,32 +300,36 @@ def _queue_filters(
     )
 
 
+VALID_APPROVAL_STATUSES_BY_TYPE: dict[ApprovalObjectType, set[str]] = {
+    ApprovalObjectType.CONTENT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+    ApprovalObjectType.CALENDAR_DRAFT: {
+        "draft",
+        "in_review",
+        "approved",
+        "rejected",
+        "changes_requested",
+        "ready_for_scheduling",
+        "archived",
+    },
+    ApprovalObjectType.COMMUNITY_REPLY: {
+        "draft",
+        "in_review",
+        "approved",
+        "rejected",
+        "changes_requested",
+        "escalated",
+        "archived",
+    },
+    ApprovalObjectType.REPORT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+}
+
+
+def _status_matches_queue(object_type: ApprovalObjectType, status: str | None) -> bool:
+    return status is None or status in VALID_APPROVAL_STATUSES_BY_TYPE[object_type]
+
+
 def _validate_status_for_queue(object_type: ApprovalObjectType, status: str | None) -> None:
-    if not status:
-        return
-    allowed = {
-        ApprovalObjectType.CONTENT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
-        ApprovalObjectType.CALENDAR_DRAFT: {
-            "draft",
-            "in_review",
-            "approved",
-            "rejected",
-            "changes_requested",
-            "ready_for_scheduling",
-            "archived",
-        },
-        ApprovalObjectType.COMMUNITY_REPLY: {
-            "draft",
-            "in_review",
-            "approved",
-            "rejected",
-            "changes_requested",
-            "escalated",
-            "archived",
-        },
-        ApprovalObjectType.REPORT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
-    }
-    if status not in allowed[object_type]:
+    if not _status_matches_queue(object_type, status):
         raise HTTPException(status_code=400, detail=f"Invalid status for {object_type.value}: {status}")
 
 
@@ -449,6 +369,12 @@ async def ai_generate_content_package(
     orchestrator: AIOrchestrator = Depends(get_ai_orchestrator),
 ) -> GeneratedContentPackage:
     return await orchestrator.generate_content_package(payload)
+
+
+@app.post("/internal/ai/content/refine", response_model=ContentRefinementResponse)
+async def ai_refine_content(payload: ContentRefinementRequest) -> ContentRefinementResponse:
+    improved = f"{payload.content.strip()}\n\nRefinement note: {payload.instruction.strip()}"
+    return ContentRefinementResponse(improved=improved)
 
 
 @app.post("/internal/ai/brand-strategy", response_model=BrandStrategyPlan)
@@ -813,24 +739,32 @@ async def ai_list_approval_queue(
         created_before=created_before,
     )
     object_types = [filters.object_type] if filters.object_type else list(ApprovalObjectType)
+    if filters.object_type:
+        _validate_status_for_queue(filters.object_type, filters.status)
+    else:
+        object_types = [queue_type for queue_type in object_types if _status_matches_queue(queue_type, filters.status)]
+        if not object_types:
+            raise HTTPException(status_code=400, detail=f"Invalid status for every approval object type: {filters.status}")
+
     items: list[Any] = []
+    page_fetch_limit = filters.offset + filters.limit
     for queue_type in object_types:
-        _validate_status_for_queue(queue_type, filters.status)
         if queue_type == ApprovalObjectType.CONTENT_DRAFT:
-            rows = await repository.list_content_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_content_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(content_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.CALENDAR_DRAFT:
-            rows = await repository.list_calendar_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_calendar_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(calendar_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.COMMUNITY_REPLY:
-            rows = await repository.list_community_reply_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_community_reply_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(community_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.REPORT_DRAFT:
-            rows = await repository.list_report_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_report_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(report_queue_item_from_row(row) for row in rows)
     items.sort(key=lambda item: item.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    items = items[: filters.limit]
-    return ApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+    total_visible = len(items)
+    page = items[filters.offset : filters.offset + filters.limit]
+    return ApprovalQueueResponse(items=page, count=total_visible, limit=filters.limit, offset=filters.offset)
 
 
 @app.get("/internal/ai/drafts/content", response_model=ContentApprovalQueueResponse)
@@ -903,7 +837,13 @@ async def ai_list_community_reply_drafts(
 
 
 @app.post("/internal/captions/generate", response_model=CaptionResponse)
-async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends(get_deps)) -> CaptionResponse:
+async def caption_generate(
+    payload: CaptionRequest,
+    response: Response,
+    deps: Dependencies = Depends(get_deps),
+) -> CaptionResponse:
+    response.headers["x-aria-deprecated-route"] = "legacy-caption-generator"
+    response.headers["x-aria-demo-mode"] = "true"
     variants: list[CaptionVariant] = []
 
     for platform in payload.target_platforms:
@@ -916,8 +856,8 @@ async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends
             ),
         )
 
-        llm_res = await deps.adapter.chat("openai", "gpt-4o-mini", [base_system, base_user], response_format="json")
-        seed = llm_res["token_usage"]["input"]
+        await deps.adapter.chat("openai", "gpt-4o-mini", [base_system, base_user], response_format="json")
+        seed = len(platform) + len(payload.core_message)
         for i in range(3):
             caption = f"{payload.core_message} | {platform} variant {i + 1}"
             hashtags = [f"#{platform}", "#ai", "#socialmedia", f"#v{i + 1}"]
@@ -929,7 +869,12 @@ async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends
 
 
 @app.post("/run", response_model=OrchestrateResponse)
-async def orchestrate(payload: OrchestrateRequest, deps: Dependencies = Depends(get_deps)) -> OrchestrateResponse:
+async def orchestrate(
+    payload: OrchestrateRequest,
+    response: Response,
+    deps: Dependencies = Depends(get_deps),
+) -> OrchestrateResponse:
+    response.headers["x-aria-deprecated-route"] = "legacy-orchestration-run"
     timeout = httpx.Timeout(20.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         content_req = client.post(
@@ -1009,8 +954,10 @@ async def orchestrate(payload: OrchestrateRequest, deps: Dependencies = Depends(
             tone_fingerprint=content_data.get("tone_fingerprint_json", {}),
             visual_profile={"palette": visual_data.get("palette", [])},
         ),
+        response,
         deps,
     )
+    response.headers["x-aria-deprecated-route"] = "legacy-orchestration-run"
 
     required_modules = {
         "content_analysis": content_data,

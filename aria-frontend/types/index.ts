@@ -105,7 +105,7 @@ export interface PsychographicProfile {
 }
 
 export interface PlatformSegments {
-  facebook_custom_audience: { include_rules: any[]; exclude_rules: any[] };
+  facebook_custom_audience: { include_rules: unknown[]; exclude_rules: unknown[] };
   linkedin_audience_attributes: { job_titles: string[]; industries: string[]; seniority: string[] };
   x_interest_clusters: string[];
   tiktok_interest_categories: string[];
@@ -184,17 +184,6 @@ export interface ScheduleRequest {
 export interface ScheduleResponse {
   schedule_ids: string[];
   status: "queued";
-}
-
-export interface PresignResponse {
-  upload_url: string;
-  asset_id: string;
-}
-
-export interface ImportResponse {
-  staged_count: number;
-  skipped_count: number;
-  import_id?: string;
 }
 
 export interface QualityCheckResponse {

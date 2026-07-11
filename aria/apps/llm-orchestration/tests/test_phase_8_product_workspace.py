@@ -85,6 +85,14 @@ def test_brand_profile_routes_return_safe_schema() -> None:
             "/internal/ai/brand-profile",
             json={"profile": _brand_profile(brand_name="ARIA Studio").model_dump(mode="json")},
         )
+        update_response = client.put(
+            "/internal/ai/brand-profile/brand-1",
+            json={"profile": _brand_profile(brand_name="ARIA Updated").model_dump(mode="json")},
+        )
+        mismatched_update = client.put(
+            "/internal/ai/brand-profile/another-brand",
+            json={"profile": _brand_profile().model_dump(mode="json")},
+        )
         validate_response = client.post(
             "/internal/ai/brand-profile/validate",
             json={"profile": _brand_profile(description="").model_dump(mode="json"), "using_default_context": True},
@@ -95,6 +103,10 @@ def test_brand_profile_routes_return_safe_schema() -> None:
         assert "brand_profile_json" not in get_response.json()
         assert upsert_response.status_code == 200
         assert upsert_response.json()["profile"]["brand_name"] == "ARIA Studio"
+        assert update_response.status_code == 200
+        assert update_response.json()["profile"]["brand_name"] == "ARIA Updated"
+        assert mismatched_update.status_code == 400
+        assert mismatched_update.json()["detail"] == "brand_id path parameter must match profile.brand_id."
         assert repo.saved is not None
         assert validate_response.status_code == 200
         assert "description" in validate_response.json()["missing_required_fields"]

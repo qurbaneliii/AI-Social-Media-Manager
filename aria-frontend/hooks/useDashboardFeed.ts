@@ -13,6 +13,30 @@ import { titleCase } from "@/lib/utils";
 import { useCompanyStore } from "@/stores/useCompanyStore";
 import type { DashboardNotification, DashboardPlatform, DashboardPost, PostStatus } from "@/lib/mock-data";
 
+interface DashboardPostRow {
+  generated_package_json?: {
+    variants?: Array<{
+      variant_id?: unknown;
+      text?: unknown;
+    }>;
+    selected_variant_id?: unknown;
+  };
+  core_message?: unknown;
+  platform_targets?: unknown[];
+  status?: unknown;
+  performance_metrics?: Record<string, unknown>;
+  post_id?: unknown;
+  requested_publish_at?: unknown;
+}
+
+interface AuditRow {
+  action?: unknown;
+  resource_type?: unknown;
+  actor?: unknown;
+  audit_id?: unknown;
+  created_at?: unknown;
+}
+
 const toDashboardPlatform = (value: unknown): DashboardPlatform => {
   const normalized = String(value ?? "linkedin").toLowerCase();
   if (normalized === "x" || normalized === "twitter") {
@@ -38,20 +62,20 @@ const toDashboardStatus = (value: unknown): PostStatus => {
   return "draft";
 };
 
-const extractPostContent = (row: any): string => {
+const extractPostContent = (row: DashboardPostRow): string => {
   const generated = row?.generated_package_json;
   const variants = Array.isArray(generated?.variants) ? generated.variants : [];
   const selectedVariantId = generated?.selected_variant_id;
 
   const selectedVariant =
-    variants.find((variant: any) => String(variant?.variant_id ?? "") === String(selectedVariantId ?? "")) ?? variants[0];
+    variants.find((variant) => String(variant?.variant_id ?? "") === String(selectedVariantId ?? "")) ?? variants[0];
 
   const text = selectedVariant?.text ?? row?.core_message ?? "";
   const cleaned = String(text).trim();
   return cleaned || "No content available.";
 };
 
-const mapPost = (row: any): DashboardPost => {
+const mapPost = (row: DashboardPostRow): DashboardPost => {
   const platformTargets = Array.isArray(row?.platform_targets) ? row.platform_targets : [];
   const platform = toDashboardPlatform(platformTargets[0]);
   const status = toDashboardStatus(row?.status);
@@ -84,7 +108,7 @@ const mapNotificationType = (action: string): DashboardNotification["type"] => {
   return "info";
 };
 
-const mapNotification = (item: any, index: number): DashboardNotification => {
+const mapNotification = (item: AuditRow, index: number): DashboardNotification => {
   const action = String(item?.action ?? "system_event");
   const resourceType = String(item?.resource_type ?? "system");
   const actor = item?.actor ? String(item.actor) : "system";

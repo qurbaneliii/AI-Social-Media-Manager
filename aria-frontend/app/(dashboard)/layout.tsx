@@ -6,42 +6,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
-import { BarChart3, CalendarClock, FileText, LogOut, PlusCircle } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { navigateTo } from "@/lib/navigate";
-import type { UserRole } from "@/types";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const roleNav: Record<UserRole, NavItem[]> = {
-  agency_admin: [
-    { href: "/posts/new", label: "Create Post", icon: <PlusCircle className="h-4 w-4" /> },
-    { href: "/posts", label: "Posts", icon: <FileText className="h-4 w-4" /> },
-    { href: "/scheduler", label: "Scheduler", icon: <CalendarClock className="h-4 w-4" /> },
-    { href: "/analytics", label: "Analytics", icon: <BarChart3 className="h-4 w-4" /> }
-  ],
-  brand_manager: [
-    { href: "/posts/new", label: "Create Post", icon: <PlusCircle className="h-4 w-4" /> },
-    { href: "/posts", label: "Posts", icon: <FileText className="h-4 w-4" /> },
-    { href: "/scheduler", label: "Scheduler", icon: <CalendarClock className="h-4 w-4" /> },
-    { href: "/analytics", label: "Analytics", icon: <BarChart3 className="h-4 w-4" /> }
-  ],
-  content_creator: [
-    { href: "/posts/new", label: "Create Post", icon: <PlusCircle className="h-4 w-4" /> },
-    { href: "/posts", label: "Posts", icon: <FileText className="h-4 w-4" /> },
-    { href: "/scheduler", label: "Scheduler", icon: <CalendarClock className="h-4 w-4" /> }
-  ],
-  analyst: [
-    { href: "/posts", label: "Posts", icon: <FileText className="h-4 w-4" /> },
-    { href: "/analytics", label: "Analytics", icon: <BarChart3 className="h-4 w-4" /> }
-  ]
-};
+import { getDefaultRouteForRole, getNavigationItems, isActiveRoute } from "@/lib/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -54,17 +24,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!activeRole) {
       return [];
     }
-    return roleNav[activeRole];
+    return getNavigationItems(activeRole);
   }, [activeRole]);
 
   useEffect(() => {
     if (isLoading || !activeRole) {
       return;
     }
-    const allowed = roleNav[activeRole].some((item) => pathname.startsWith(item.href));
+    const allowed = getNavigationItems(activeRole).some((item) => isActiveRoute(pathname, item.href));
     if (!allowed) {
-      const fallback = roleNav[activeRole][0]?.href ?? "/posts";
-      navigateTo(fallback);
+      navigateTo(getDefaultRouteForRole(activeRole));
     }
   }, [activeRole, isLoading, pathname]);
 
@@ -94,18 +63,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:grid-cols-[220px_1fr]">
         <aside className="rounded-xl border border-slate-200 bg-white p-3">
           <nav className="space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                  pathname.startsWith(item.href) ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                    isActiveRoute(pathname, item.href)
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                  aria-current={isActiveRoute(pathname, item.href) ? "page" : undefined}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </aside>
         <main>{children}</main>

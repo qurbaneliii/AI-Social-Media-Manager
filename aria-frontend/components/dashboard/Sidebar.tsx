@@ -3,70 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart2,
-  Brain,
-  Calendar,
   ChevronsLeft,
   ChevronsRight,
-  Compass,
-  FileText,
-  Grid,
-  LayoutDashboard,
   LogOut,
-  MessageSquareText,
-  PlusCircle,
-  ShieldCheck,
-  Settings,
-  Sparkles,
-  TrendingUp,
-  UsersRound
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
+import { getNavigationSections, isActiveRoute } from "@/lib/navigation";
 import { useDashboardStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-
-const navSections = [
-  {
-    label: "Main",
-    items: [
-      { label: "Brand Dashboard", icon: LayoutDashboard, href: "/dashboard/brand" },
-      { label: "AI Workspace", icon: Sparkles, href: "/dashboard/ai" },
-      { label: "Brand Brain", icon: Brain, href: "/dashboard/brand-brain" },
-      { label: "Analytics", icon: BarChart2, href: "/dashboard/analytics" }
-    ]
-  },
-  {
-    label: "AI Modules",
-    items: [
-      { label: "Content Studio", icon: FileText, href: "/dashboard/content-studio" },
-      { label: "Strategy", icon: Compass, href: "/dashboard/strategy" },
-      { label: "Trends", icon: TrendingUp, href: "/dashboard/trends" },
-      { label: "Competitors", icon: UsersRound, href: "/dashboard/competitors" },
-      { label: "AI Analyst", icon: BarChart2, href: "/dashboard/ai-analyst" },
-      { label: "Calendar AI", icon: Calendar, href: "/dashboard/calendar-ai" },
-      { label: "Community AI", icon: MessageSquareText, href: "/dashboard/community-ai" },
-      { label: "Reports AI", icon: Grid, href: "/dashboard/reports-ai" }
-    ]
-  },
-  {
-    label: "Content",
-    items: [
-      { label: "Content", icon: FileText, href: "/dashboard/content" },
-      { label: "Create Post", icon: PlusCircle, href: "/dashboard/create", highlight: true },
-      { label: "Posts", icon: Grid, href: "/dashboard/posts" },
-      { label: "Scheduler", icon: Calendar, href: "/dashboard/scheduler" },
-      { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" }
-    ]
-  },
-  {
-    label: "Settings",
-    items: [{ label: "Settings", icon: Settings, href: "/dashboard/settings" }]
-  }
-] as const;
 
 const getInitials = (name: string | null | undefined): string => {
   if (!name) {
@@ -83,6 +31,7 @@ const getInitials = (name: string | null | undefined): string => {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const navSections = getNavigationSections(user?.role ?? null);
 
   const isCollapsed = useDashboardStore((state) => state.sidebarCollapsed);
   const setCollapsed = useDashboardStore((state) => state.setSidebarCollapsed);
@@ -106,21 +55,23 @@ export function Sidebar() {
           <div key={section.label} className="space-y-1">
             {!isCollapsed ? <p className="label-xs px-2">{section.label}</p> : null}
             {section.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const isHighlighted = "highlight" in item && item.highlight;
+              const active = isActiveRoute(pathname, item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "group flex items-center rounded-lg border-l-2 px-2 py-2 text-sm transition-all",
                     active
                       ? "border-l-[var(--brand-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
                       : "border-l-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]",
-                    isHighlighted && !active ? "text-[var(--brand-primary)]" : ""
+                    item.highlight && !active ? "text-[var(--brand-primary)]" : ""
                   )}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {!isCollapsed ? <span className="ml-2 truncate">{item.label}</span> : null}
                 </Link>
               );

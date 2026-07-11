@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: oregon
-    branch: deploy/mvp-vercel-render-supabase
+    branch: main
     rootDir: aria/apps/llm-orchestration
     buildCommand: pip install -U pip && pip install -e .
     startCommand: PYTHONPATH=app uvicorn main:app --host 0.0.0.0 --port $PORT
@@ -16,7 +16,7 @@ services:
       - key: AI_MOCK_MODE
         value: "true"
       - key: OPENAI_API_KEY
-        value: replace-me
+        sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
       - key: AI_TEMPERATURE
