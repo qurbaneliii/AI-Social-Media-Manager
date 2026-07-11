@@ -11,6 +11,7 @@ ARIA is an approval-based AI social media manager and brand manager. The MVP mus
 - Browser public API base: `NEXT_PUBLIC_API_BASE_URL`
 - Primary content-generation flow: `/posts/new` in the role-aware frontend shell
 - Primary content API: `/v1/posts/generate`
+- Public runtime router: `aria/apps/llm-orchestration/app/api/routers/public_runtime.py`
 - AI workspace API: `/internal/ai/*` on the llm-orchestration backend
 - Approval UI: `/dashboard/approval`
 - Deployment path: Vercel frontend, Render backend, Supabase database/auth-aligned storage
@@ -113,4 +114,4 @@ flowchart TD
 - Legacy `/dashboard/*` module pages still exist and need route-by-route retirement or migration after behavior is verified.
 - Root-level `apps/` and `packages/` still overlap with `aria/apps/` and `aria/packages/`.
 - Frontend contracts are still handwritten and should be synchronized from the FastAPI OpenAPI schema.
-- Backend `main.py` still owns too much routing logic and should be split into routers and dependencies in a later phase.
+- Backend `main.py` now includes the public runtime router and shared dependency module, but still owns too much internal AI, approval, and legacy route logic.

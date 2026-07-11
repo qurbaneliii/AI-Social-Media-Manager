@@ -31,6 +31,8 @@ The browser should not need to know whether AI orchestration is internal, in-pro
 - `POST /v1/schedules/{schedule_id}/approve`
 - canonical AI assist routes under `/internal/ai/*`
 
+The `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` handlers are owned by `aria/apps/llm-orchestration/app/api/routers/public_runtime.py`. `main.py` includes this router and re-exports the current in-memory stores only for regression compatibility while persistence work remains incomplete.
+
 ## Compatibility
 
 `NEXT_PUBLIC_AI_ORCHESTRATION_URL` and `NEXT_PUBLIC_API_URL` are compatibility fallbacks only. New deployments should set `NEXT_PUBLIC_API_BASE_URL`.

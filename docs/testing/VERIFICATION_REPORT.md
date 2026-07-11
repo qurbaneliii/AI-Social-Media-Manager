@@ -78,6 +78,27 @@ python -m pytest aria/apps/llm-orchestration/tests/test_public_runtime_contract.
 
 Result: `3 passed`.
 
+Result after public runtime router extraction: `3 passed`.
+
+Backend lint after public runtime router extraction:
+
+```powershell
+python -m ruff check aria/apps/llm-orchestration/app/main.py aria/apps/llm-orchestration/app/api/dependencies.py aria/apps/llm-orchestration/app/api/routers/public_runtime.py
+```
+
+Result: passed.
+
+Full backend suite after public runtime router extraction:
+
+```powershell
+$env:PYTHONPATH='aria/apps/llm-orchestration/app'
+$env:AI_MOCK_MODE='true'
+$env:OPENAI_API_KEY='replace-me'
+python -m pytest aria/apps/llm-orchestration/tests -q -rA
+```
+
+Result: `58 passed, 2 skipped`.
+
 Exact Render-entrypoint local smoke:
 
 ```powershell
@@ -94,6 +115,13 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8010
 | `POST /v1/posts/generate` | `200`, returned `status=generated` and a `post_id` |
 | `GET /v1/posts/{post_id}` | `200`, returned `generated_package_json` |
 | `POST /ai/generate-content` | `404`, confirming legacy `/ai/*` is not deployed |
+
+Exact Render-entrypoint smoke after public runtime router extraction:
+
+| Request | Result |
+| --- | --- |
+| `GET /health` on port `8011` | `200`, returned `status=ok` |
+| `POST /v1/posts/generate` on port `8011` | `200`, returned `status=generated` and a `post_id` |
 
 ## Fixed During This Pass
 
@@ -114,6 +142,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8010
 - Replaced `/posts/new` AI assist calls to missing `/ai/*` routes with canonical `/internal/ai/*` backend calls.
 - Added public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` MVP runtime routes to the Render-deployed FastAPI entrypoint.
 - Added route-contract tests for the exact Render entrypoint.
+- Extracted public runtime routes and shared FastAPI dependencies into `api/routers/public_runtime.py` and `api/dependencies.py`.
 
 ## Not Verified
 

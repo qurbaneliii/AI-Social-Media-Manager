@@ -62,7 +62,7 @@ New deployments should not set separate public AI and core API URLs.
 
 ## Not Yet Complete
 
-- Public `/v1` routes in `aria/apps/llm-orchestration` currently provide the MVP runtime contract and route ownership for PR #8; full production persistence and auth still need Phase J/K work.
+- Public `/v1` routes in `aria/apps/llm-orchestration/app/api/routers/public_runtime.py` currently provide the MVP runtime contract and route ownership for PR #8; full production persistence and auth still need Phase J/K work.
 - Actor identity is still not derived from trusted backend authentication context.
 - Live PostgreSQL integration for these new public routes has not been completed in this pass.
 - Browser Playwright non-preview happy-path testing remains required.
