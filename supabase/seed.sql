@@ -26,7 +26,7 @@ values
     'gpt-4o-mini',
     'You generate relevant broad, niche, and micro hashtag sets for social campaigns.',
     'Suggest hashtags for {{platform}} content about {{topic}} in {{industry_vertical}}.',
-    '{"type":"object","required":["broad","niche","micro"],"properties":{"broad":{"type":"array"},"niche":{"type":"array"},"micro":{"type":"array"}}}'::jsonb,
+    '{"type":"object","required":["broad","niche","micro"],"properties":{"broad":{"type":"array","items":{"type":"string"}},"niche":{"type":"array","items":{"type":"string"}},"micro":{"type":"array","items":{"type":"string"}}}}'::jsonb,
     true
   )
 on conflict (module_name, version) do update set
