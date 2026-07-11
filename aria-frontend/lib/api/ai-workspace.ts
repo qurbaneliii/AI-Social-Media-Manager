@@ -96,6 +96,12 @@ export interface AIQualityReview {
   improvement_notes: string[];
 }
 
+export interface ContentRefinementResponse {
+  improved: string;
+  mock_mode: boolean;
+  route: string;
+}
+
 export interface BrandStrategyRequest {
   brand_profile: BrandProfile;
   business_goal: string;
@@ -302,8 +308,8 @@ export class AIWorkspaceApiError extends Error {
 }
 
 const API_BASE_ENV_KEYS = [
-  "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
   "NEXT_PUBLIC_API_BASE_URL",
+  "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
   "NEXT_PUBLIC_API_URL"
 ] as const;
 
@@ -342,11 +348,11 @@ function resolveApiBase(): string {
   }
 
   throw new AIWorkspaceApiError(
-    "NEXT_PUBLIC_AI_ORCHESTRATION_URL is not configured.",
+    "NEXT_PUBLIC_API_BASE_URL is not configured.",
     0,
     {
-      required_env: "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
-      alternate_env: ["NEXT_PUBLIC_API_BASE_URL", "NEXT_PUBLIC_API_URL"]
+      required_env: "NEXT_PUBLIC_API_BASE_URL",
+      compatibility_fallback_env: ["NEXT_PUBLIC_AI_ORCHESTRATION_URL", "NEXT_PUBLIC_API_URL"]
     }
   );
 }
@@ -434,6 +440,10 @@ export function validateBrandProfile(
 
 export function generateContentPackage(payload: ContentRequest): Promise<GeneratedContentPackage> {
   return postJson("/internal/ai/generate-content-package", payload);
+}
+
+export function refineContent(payload: { content: string; instruction: string }): Promise<ContentRefinementResponse> {
+  return postJson("/internal/ai/content/refine", payload);
 }
 
 export function createBrandStrategy(payload: BrandStrategyRequest): Promise<BrandStrategyPlan> {

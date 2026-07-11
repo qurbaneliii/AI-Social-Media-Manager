@@ -3,6 +3,17 @@ import {
   PREVIEW_MODE_MESSAGE,
   mockGeneratedContent
 } from "@/lib/mockData";
+import {
+  generateContentPackage,
+  recommendHashtags,
+  refineContent,
+  researchTrends,
+  reviewContentQuality,
+  type BrandProfile,
+  type ContentRequest,
+  type GeneratedContentPackage,
+  type PlatformContext
+} from "@/lib/api/ai-workspace";
 
 export type AIPlatform = "linkedin" | "twitter" | "instagram" | "facebook" | "tiktok" | "pinterest" | "x";
 
@@ -78,36 +89,8 @@ export interface AISuggestTopicsResponse {
   topics: string[];
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
-
 const normalizePlatform = (platform: AIPlatform): Exclude<AIPlatform, "x"> => {
   return platform === "x" ? "twitter" : platform;
-};
-
-const getTokenFromStorage = (): string | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return (
-    localStorage.getItem("aria_token") ??
-    sessionStorage.getItem("aria_token") ??
-    localStorage.getItem("auth_token") ??
-    sessionStorage.getItem("auth_token")
-  );
-};
-
-const getTokenFromCookie = (): string | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie.match(/(?:^|; )auth_token=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-};
-
-const getAuthToken = (): string | null => {
-  return getTokenFromStorage() ?? getTokenFromCookie();
 };
 
 const isPreviewMode = (): boolean => {
@@ -120,41 +103,85 @@ const isPreviewMode = (): boolean => {
   return localStorage.getItem("isPreview") === "true";
 };
 
-const toApiUrl = (path: string): string => {
-  if (!API_BASE) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
-  }
-  return `${API_BASE}${path}`;
+const stringValue = (input: unknown, fallback = ""): string => {
+  return typeof input === "string" && input.trim() ? input.trim() : fallback;
 };
 
-const postJson = async <TResponse>(path: string, body: unknown): Promise<TResponse> => {
-  const token = getAuthToken();
-
-  const response = await fetch(toApiUrl(path), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    credentials: "include",
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
-
-    try {
-      const payload = (await response.json()) as { error?: string; message?: string };
-      message = payload.error ?? payload.message ?? message;
-    } catch {
-      // Keep fallback message.
-    }
-
-    throw new Error(message);
-  }
-
-  return (await response.json()) as TResponse;
+const stringArray = (input: unknown, fallback: string[] = []): string[] => {
+  return Array.isArray(input) ? input.map((item) => String(item).trim()).filter(Boolean) : fallback;
 };
+
+const buildBrandProfile = (params: AIGenerateContentRequest): BrandProfile => {
+  const companyProfile = params.companyProfile ?? {};
+  const companyId = stringValue(companyProfile.companyId, "selected-brand");
+  const companyName = stringValue(companyProfile.companyName, stringValue(companyProfile.name, "Selected brand"));
+  const tone = params.tone
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const selectedPlatform = normalizePlatform(params.platform);
+
+  return {
+    brand_id: companyId,
+    brand_name: companyName,
+    industry: stringValue(companyProfile.industry, "social media"),
+    description: stringValue(companyProfile.description, "Brand profile selected in ARIA Create workflow."),
+    products_or_services: stringArray(companyProfile.productsOrServices, ["social media content"]),
+    target_audience: stringArray(companyProfile.targetAudience, ["selected audience"]),
+    tone_of_voice: tone.length ? tone : stringArray(companyProfile.tone, ["professional"]),
+    brand_values: stringArray(companyProfile.brandValues, ["approval-based publishing"]),
+    forbidden_topics: stringArray(companyProfile.forbiddenTopics),
+    forbidden_words: params.bannedVocabulary,
+    approved_claims: params.approvedVocabulary,
+    competitors: stringArray(companyProfile.competitors),
+    platforms: [selectedPlatform],
+    visual_style: { brand_colors: params.brandColors },
+    business_goals: [params.topic],
+    language_preferences: ["en"]
+  };
+};
+
+const buildPlatformContext = (params: AIGenerateContentRequest): PlatformContext => ({
+  platform: normalizePlatform(params.platform),
+  content_type: "post",
+  objective: params.ctaType,
+  tone_override: params.tone,
+  hashtag_limit: 12,
+  format_rules: params.postingFrequency ? [`posting_frequency:${params.postingFrequency}`] : []
+});
+
+const buildContentRequest = (params: AIGenerateContentRequest): ContentRequest => ({
+  brand_profile: buildBrandProfile(params),
+  platform_context: buildPlatformContext(params),
+  campaign_objective: params.ctaType,
+  topic: params.topic,
+  content_pillar: "create",
+  number_of_variants: 1,
+  extra_context: {
+    approved_vocabulary: params.approvedVocabulary,
+    banned_vocabulary: params.bannedVocabulary,
+    brand_colors: params.brandColors
+  }
+});
+
+const packageToContent = (pkg: GeneratedContentPackage): string => {
+  return [pkg.hook, pkg.caption, pkg.cta].filter(Boolean).join("\n\n");
+};
+
+const packageFromDraft = (content: string, platform: AIPlatform): GeneratedContentPackage => ({
+  platform: normalizePlatform(platform),
+  content_type: "post",
+  hook: content.split("\n")[0] ?? content,
+  caption: content,
+  cta: "",
+  hashtags: [],
+  visual_brief: {},
+  video_script: null,
+  carousel_structure: [],
+  posting_recommendation: {},
+  rationale: "Draft supplied by the user for quality review.",
+  risks: []
+});
 
 export const generateContent = async (
   params: AIGenerateContentRequest
@@ -174,10 +201,11 @@ export const generateContent = async (
     };
   }
 
-  return postJson<AIGenerateContentResponse>("/ai/generate-content", {
-    ...params,
+  const generated = await generateContentPackage(buildContentRequest(params));
+  return {
+    content: packageToContent(generated),
     platform: normalizePlatform(params.platform)
-  });
+  };
 };
 
 export const generateBatch = async (
@@ -203,13 +231,25 @@ export const generateBatch = async (
     };
   }
 
-  return postJson<AIGenerateBatchResponse>(
-    "/ai/generate-batch",
-    params.map((item) => ({
-      ...item,
-      platform: normalizePlatform(item.platform)
-    }))
+  const results = await Promise.all(
+    params.map(async (item) => {
+      try {
+        const generated = await generateContent(item);
+        return {
+          success: true,
+          platform: generated.platform,
+          content: generated.content
+        };
+      } catch (error) {
+        return {
+          success: false,
+          platform: normalizePlatform(item.platform),
+          error: error instanceof Error ? error.message : "Generation failed"
+        };
+      }
+    })
   );
+  return { results };
 };
 
 export const improveContent = async (
@@ -221,7 +261,7 @@ export const improveContent = async (
     };
   }
 
-  return postJson<AIImproveContentResponse>("/ai/improve-content", params);
+  return refineContent(params);
 };
 
 export const analyzeContent = async (
@@ -242,10 +282,28 @@ export const analyzeContent = async (
     };
   }
 
-  return postJson<AIAnalyzeContentResponse>("/ai/analyze-content", {
-    ...params,
-    platform: normalizePlatform(params.platform)
+  const request = buildContentRequest({
+    platform: params.platform,
+    topic: params.content,
+    tone: "professional",
+    ctaType: "learn_more",
+    brandColors: [],
+    approvedVocabulary: [],
+    bannedVocabulary: [],
+    companyProfile: { companyName: "Selected brand" }
   });
+  const review = await reviewContentQuality({
+    request,
+    package: packageFromDraft(params.content, params.platform)
+  });
+  return {
+    scores: {
+      engagement: Math.round(review.engagement_potential_score * 100),
+      clarity: Math.round(review.clarity_score * 100),
+      cta_strength: Math.round(review.cta_strength_score * 100)
+    },
+    suggestions: review.improvement_notes
+  };
 };
 
 export const suggestHashtags = async (
@@ -257,10 +315,36 @@ export const suggestHashtags = async (
     };
   }
 
-  return postJson<AISuggestHashtagsResponse>("/ai/suggest-hashtags", {
-    ...params,
-    platform: normalizePlatform(params.platform)
+  const request = buildContentRequest({
+    platform: params.platform,
+    topic: params.content,
+    tone: "professional",
+    ctaType: "learn_more",
+    brandColors: [],
+    approvedVocabulary: [],
+    bannedVocabulary: [],
+    companyProfile: { companyName: "Selected brand" }
   });
+  const response = await recommendHashtags({
+    brand_profile: request.brand_profile,
+    platform_context: request.platform_context,
+    topic: params.content,
+    trend_keywords: params.content
+      .split(/\s+/)
+      .map((item) => item.replace(/[^a-z0-9#]/gi, ""))
+      .filter(Boolean)
+      .slice(0, 8),
+    max_hashtags: 12
+  });
+  return {
+    hashtags: [
+      ...response.branded_hashtags,
+      ...response.campaign_hashtags,
+      ...response.niche_hashtags,
+      ...response.broad_hashtags,
+      ...response.trend_based_hashtags
+    ].slice(0, 12)
+  };
 };
 
 export const suggestTopics = async (
@@ -278,8 +362,38 @@ export const suggestTopics = async (
     };
   }
 
-  return postJson<AISuggestTopicsResponse>("/ai/suggest-topics", {
-    ...params,
-    platforms: params.platforms.map(normalizePlatform)
+  const brandProfile: BrandProfile = {
+    brand_id: stringValue(params.companyProfile.companyId, "selected-brand"),
+    brand_name: stringValue(params.companyProfile.companyName, stringValue(params.companyProfile.name, "Selected brand")),
+    industry: params.industry,
+    description: "Topic suggestion request from ARIA Create workflow.",
+    products_or_services: ["social media content"],
+    target_audience: ["selected audience"],
+    tone_of_voice: stringArray(params.companyProfile.tone, ["professional"]),
+    brand_values: ["approval-based publishing"],
+    forbidden_topics: [],
+    forbidden_words: [],
+    approved_claims: [],
+    competitors: [],
+    platforms: params.platforms.map(normalizePlatform),
+    visual_style: {},
+    business_goals: [`Create relevant ${params.industry} social posts`],
+    language_preferences: ["en"]
+  };
+  const response = await researchTrends({
+    brand_profile: brandProfile,
+    trends: [
+      {
+        keyword: params.industry,
+        source: "create_workflow",
+        signals: params.companyProfile
+      }
+    ],
+    platforms: params.platforms.map(normalizePlatform),
+    business_goal: `Suggest topics for ${params.industry}`
   });
+  const topics = [...response.relevant_topics, ...response.trend_opportunities].filter(Boolean);
+  return {
+    topics: topics.length ? topics.slice(0, 8) : [`${params.industry} content strategy`, `${params.industry} customer questions`]
+  };
 };

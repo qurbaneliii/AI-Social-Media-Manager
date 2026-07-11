@@ -127,8 +127,10 @@ Important variables include:
 | `OPENAI_API_KEY` | Backend-only optional provider key for non-mock AI generation |
 | `OPENAI_MODEL` | Model name for OpenAI-compatible calls |
 | `AI_MOCK_MODE` | Enables deterministic/mock AI behavior for local development |
-| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Frontend URL for the canonical Render/FastAPI backend |
+| `NEXT_PUBLIC_API_BASE_URL` | Canonical browser-visible public API base URL for the Render/FastAPI backend |
 | `TEMPORAL_ADDRESS` | Temporal service address for workflow-oriented components |
+
+`NEXT_PUBLIC_AI_ORCHESTRATION_URL` and `NEXT_PUBLIC_API_URL` are compatibility aliases only. New frontend deployments should set `NEXT_PUBLIC_API_BASE_URL`.
 
 Do not commit real secrets. Keep real values in local `.env` files or deployment secret stores.
 

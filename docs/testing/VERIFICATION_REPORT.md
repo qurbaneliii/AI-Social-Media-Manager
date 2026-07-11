@@ -48,7 +48,35 @@ $env:OPENAI_API_KEY='replace-me'
 python -m pytest aria/apps/llm-orchestration/tests -q -rA
 ```
 
-Result after approval queue and legacy provider isolation remediation: `55 passed, 2 skipped`.
+Result after public runtime routing remediation: `58 passed, 2 skipped`.
+
+Runtime routing contract checks:
+
+```powershell
+$env:PYTHONPATH='aria/apps/llm-orchestration/app'
+$env:AI_MOCK_MODE='true'
+$env:OPENAI_API_KEY='replace-me'
+python -m pytest aria/apps/llm-orchestration/tests/test_public_runtime_contract.py -q
+```
+
+Result: `3 passed`.
+
+Exact Render-entrypoint local smoke:
+
+```powershell
+cd aria/apps/llm-orchestration
+$env:PYTHONPATH='app'
+$env:AI_MOCK_MODE='true'
+$env:OPENAI_API_KEY='replace-me'
+python -m uvicorn main:app --host 127.0.0.1 --port 8010
+```
+
+| Request | Result |
+| --- | --- |
+| `GET /health` | `200` |
+| `POST /v1/posts/generate` | `200`, returned `status=generated` and a `post_id` |
+| `GET /v1/posts/{post_id}` | `200`, returned `generated_package_json` |
+| `POST /ai/generate-content` | `404`, confirming legacy `/ai/*` is not deployed |
 
 ## Fixed During This Pass
 
@@ -65,6 +93,9 @@ Result after approval queue and legacy provider isolation remediation: `55 passe
 - Consolidated frontend navigation, route matching, role visibility, mobile nav, and role redirects into `aria-frontend/lib/navigation.ts`.
 - Isolated legacy caption generation as explicit demo/deprecated behavior.
 - Added regression tests proving the legacy adapter refuses configured provider keys instead of returning fake provider output.
+- Replaced `/posts/new` AI assist calls to missing `/ai/*` routes with canonical `/internal/ai/*` backend calls.
+- Added public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` MVP runtime routes to the Render-deployed FastAPI entrypoint.
+- Added route-contract tests for the exact Render entrypoint.
 
 ## Not Verified
 

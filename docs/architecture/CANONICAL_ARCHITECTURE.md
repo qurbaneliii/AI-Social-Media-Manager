@@ -8,6 +8,7 @@ ARIA is an approval-based AI social media manager and brand manager. The MVP mus
 
 - Frontend: `aria-frontend`
 - AI orchestration backend: `aria/apps/llm-orchestration`
+- Browser public API base: `NEXT_PUBLIC_API_BASE_URL`
 - Primary content-generation flow: `/posts/new` in the role-aware frontend shell
 - Primary content API: `/v1/posts/generate`
 - AI workspace API: `/internal/ai/*` on the llm-orchestration backend
