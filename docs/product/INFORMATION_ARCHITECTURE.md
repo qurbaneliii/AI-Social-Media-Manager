@@ -29,6 +29,8 @@ Mobile primary navigation is capped at five destinations:
 
 Role visibility can reduce this list. It must not grow beyond five visible primary destinations.
 
+The `More` item opens an accessible bottom-sheet menu for secondary destinations rather than linking to a placeholder page. Its secondary items are also sourced from `aria-frontend/lib/navigation.ts` so role visibility, active-route matching, and destination labels stay aligned with the desktop shell.
+
 ## Route Decisions
 
 | Product area | Canonical route | Duplicate or legacy routes | Status |

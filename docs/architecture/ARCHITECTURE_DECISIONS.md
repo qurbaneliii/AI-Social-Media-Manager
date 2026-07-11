@@ -44,6 +44,7 @@ Evidence:
 Consequence:
 
 - New visible navigation items must be added to `lib/navigation.ts`.
+- Mobile secondary destinations must be exposed through the `More` drawer, not added as extra bottom-navigation items.
 - Route-specific role checks in UI components should be treated as display hints only, not security.
 
 ## ADR-004: Truthful MVP Deployment

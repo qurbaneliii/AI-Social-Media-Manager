@@ -54,6 +54,7 @@ Current remediation commit at audit start: `cf1bdf0`
 - Canonical target IA: Overview, Brand Brain, Create, Content, Calendar, Approval, Insights, Settings.
 - Legacy desktop navigation was reduced to this IA in `aria-frontend/app/dashboard/layout.tsx`.
 - Mobile nav was capped to Overview, Create, Content, Approval, More.
+- The mobile `More` item now opens an accessible bottom-sheet navigation menu for secondary destinations instead of acting as a placeholder route.
 - Active matching for `/posts/new` versus `/posts` now uses exact/segment-safe matching in both dashboard shells.
 - `aria-frontend/lib/navigation.ts` now centralizes labels, hrefs, icons, role visibility, route matching, mobile primary destinations, and role default redirects.
 - Remaining issue: command palette, quick actions, cards, and legacy module links still need a full orphan-link pass.
@@ -148,6 +149,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 - Fixed `/posts/new` versus `/posts` active-route collision.
 - Reduced legacy navigation to the target IA and mobile cap.
 - Consolidated duplicated navigation arrays into one typed source of truth.
+- Added an accessible mobile `More` drawer for secondary destinations and verified touch target, active state, and Escape-close behavior.
 - Added overlap redirects from legacy dashboard content/create routes.
 - Repaired aggregate approval queue status filtering and global pagination behavior.
 - Added backend regression tests for approval aggregate status and pagination.

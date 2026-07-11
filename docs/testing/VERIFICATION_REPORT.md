@@ -21,6 +21,7 @@ Results:
 - `npm run typecheck`: passed after shared navigation consolidation.
 - `npm run lint`: passed after shared navigation consolidation.
 - `npm run build`: passed after shared navigation consolidation.
+- `npm run typecheck; npm run lint; npm run build`: passed after mobile `More` drawer remediation.
 
 Local production server route smoke:
 
@@ -40,6 +41,22 @@ npm run start -- -p 3100
 | `/dashboard/create` | `307` to `/posts/new` |
 | `/dashboard/content-studio` | `307` to `/posts/new` |
 | `POST /api/ai/generate-content` | `410`, `x-aria-deprecated-route: frontend-provider-direct` |
+
+Mobile navigation browser smoke:
+
+```powershell
+cd aria-frontend
+npm run start -- -p 3100
+```
+
+| Route and viewport | Result |
+| --- | --- |
+| `/login` at `390 x 844` | Preview user flow entered the authenticated dashboard shell. |
+| `/dashboard/brand` at `390 x 844` | Primary mobile nav rendered exactly five items: Overview, Create, Content, Approval, More. |
+| `/dashboard/brand` at `390 x 844` | Mobile nav touch targets computed to `44px` high and `56px` wide. |
+| `/dashboard/brand` at `390 x 844` | `More` opened a dialog-backed bottom sheet with Brand Brain, Calendar, Insights, and Settings. |
+| `/dashboard/brand` at `390 x 844` | Escape closed the drawer and reset `aria-expanded` to `false`. |
+| `/dashboard/brand-brain` at `390 x 844` | `More` carried `aria-current="page"` for a secondary destination. |
 
 ```powershell
 $env:PYTHONPATH='aria/apps/llm-orchestration/app'
@@ -86,6 +103,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8010
 - Rewired the legacy dashboard generator helper to call the llm-orchestration backend client.
 - Fixed `/posts/new` versus `/posts` active-route matching.
 - Reduced legacy shell navigation to the canonical primary IA and capped mobile navigation at five items.
+- Repaired mobile `More` so it opens a secondary navigation drawer sourced from canonical navigation.
 - Added redirects from duplicate legacy dashboard pages to canonical role-aware pages.
 - Removed fake Render `OPENAI_API_KEY=replace-me` and switched the Render branch to `main`.
 - Repaired aggregate approval queue filtering and pagination semantics.
@@ -101,4 +119,4 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8010
 
 - Live Vercel, Render, and Supabase deployment smoke tests were not run in this pass.
 - Live database tests remain skipped without `RUN_LIVE_DB_TESTS=1` and `DATABASE_URL`.
-- Full browser screenshot matrix is still required. A smoke pass was captured in `docs/testing/VISUAL_AND_BROWSER_VERIFICATION.md`.
+- Full browser screenshot matrix is still required. A smoke pass was captured in `docs/testing/VISUAL_AND_BROWSER_VERIFICATION.md`, and mobile `More` interaction was verified at `390 x 844`.

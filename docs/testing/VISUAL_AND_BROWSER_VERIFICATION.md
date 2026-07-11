@@ -18,6 +18,19 @@ Server under test: `npm run start -- -p 3100`
 | `/dashboard/brand` | 200 | 200 | Canonical Overview destination rendered with updated primary navigation. |
 | `/dashboard/approval` | 200 | 200 | Approval page rendered and retained truthful safety copy. Backend queue request failed because the FastAPI backend was not running locally. |
 
+## Mobile Navigation Interaction
+
+Browser smoke was rerun on the production build at `390 x 844` after the `More` remediation.
+
+| Check | Result |
+| --- | --- |
+| Preview auth | `/login` preview user flow reached `/dashboard`. |
+| Primary bottom nav | `/dashboard/brand` rendered Overview, Create, Content, Approval, and More only. |
+| Touch targets | Primary items computed to at least `44px` high. |
+| More drawer | `More` opened a dialog-backed bottom sheet with Brand Brain, Calendar, Insights, and Settings. |
+| Keyboard close | Escape closed the drawer and reset `aria-expanded` to `false`. |
+| Secondary active route | `/dashboard/brand-brain` marked `More` with `aria-current="page"`. |
+
 ## Redirect Smoke
 
 | Source | Result |
@@ -58,4 +71,3 @@ The full master-prompt matrix still needs to be run after the backend is started
 - `768 x 1024`
 - `390 x 844`
 - `360 x 800`
-

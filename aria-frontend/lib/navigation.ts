@@ -115,6 +115,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
 ];
 
 const MOBILE_PRIMARY_IDS: NavigationItemId[] = ["overview", "create", "content", "approval", "more"];
+const MOBILE_PRIMARY_ROUTE_IDS = new Set<NavigationItemId>(["overview", "create", "content", "approval"]);
 
 export const isActiveRoute = (pathname: string, href: string): boolean => {
   if (href === "/posts" && pathname === "/posts/new") {
@@ -146,6 +147,10 @@ export const getMobileNavigationItems = (role?: UserRole | null): NavigationItem
   return MOBILE_PRIMARY_IDS.map((id) => NAVIGATION_ITEMS.find((item) => item.id === id))
     .filter((item): item is NavigationItem => Boolean(item))
     .filter((item) => canRoleAccessNavigationItem(role, item));
+};
+
+export const getMobileMoreNavigationItems = (role?: UserRole | null): NavigationItem[] => {
+  return getNavigationItems(role).filter((item) => !MOBILE_PRIMARY_ROUTE_IDS.has(item.id));
 };
 
 export const getDefaultRouteForRole = (role: UserRole): string => {
