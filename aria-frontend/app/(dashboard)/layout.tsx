@@ -19,6 +19,13 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
+const isActiveRoute = (pathname: string, href: string): boolean => {
+  if (href === "/posts" && pathname === "/posts/new") {
+    return false;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
 const roleNav: Record<UserRole, NavItem[]> = {
   agency_admin: [
     { href: "/posts/new", label: "Create Post", icon: <PlusCircle className="h-4 w-4" /> },
@@ -61,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (isLoading || !activeRole) {
       return;
     }
-    const allowed = roleNav[activeRole].some((item) => pathname.startsWith(item.href));
+    const allowed = roleNav[activeRole].some((item) => isActiveRoute(pathname, item.href));
     if (!allowed) {
       const fallback = roleNav[activeRole][0]?.href ?? "/posts";
       navigateTo(fallback);
@@ -99,8 +106,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                  pathname.startsWith(item.href) ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
+                  isActiveRoute(pathname, item.href) ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
                 }`}
+                aria-current={isActiveRoute(pathname, item.href) ? "page" : undefined}
               >
                 {item.icon}
                 {item.label}

@@ -8,18 +8,12 @@ import {
   Calendar,
   ChevronsLeft,
   ChevronsRight,
-  Compass,
   FileText,
-  Grid,
   LayoutDashboard,
   LogOut,
-  MessageSquareText,
   PlusCircle,
   ShieldCheck,
   Settings,
-  Sparkles,
-  TrendingUp,
-  UsersRound
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,33 +27,13 @@ const navSections = [
   {
     label: "Main",
     items: [
-      { label: "Brand Dashboard", icon: LayoutDashboard, href: "/dashboard/brand" },
-      { label: "AI Workspace", icon: Sparkles, href: "/dashboard/ai" },
+      { label: "Overview", icon: LayoutDashboard, href: "/dashboard/brand" },
       { label: "Brand Brain", icon: Brain, href: "/dashboard/brand-brain" },
-      { label: "Analytics", icon: BarChart2, href: "/dashboard/analytics" }
-    ]
-  },
-  {
-    label: "AI Modules",
-    items: [
-      { label: "Content Studio", icon: FileText, href: "/dashboard/content-studio" },
-      { label: "Strategy", icon: Compass, href: "/dashboard/strategy" },
-      { label: "Trends", icon: TrendingUp, href: "/dashboard/trends" },
-      { label: "Competitors", icon: UsersRound, href: "/dashboard/competitors" },
-      { label: "AI Analyst", icon: BarChart2, href: "/dashboard/ai-analyst" },
-      { label: "Calendar AI", icon: Calendar, href: "/dashboard/calendar-ai" },
-      { label: "Community AI", icon: MessageSquareText, href: "/dashboard/community-ai" },
-      { label: "Reports AI", icon: Grid, href: "/dashboard/reports-ai" }
-    ]
-  },
-  {
-    label: "Content",
-    items: [
-      { label: "Content", icon: FileText, href: "/dashboard/content" },
-      { label: "Create Post", icon: PlusCircle, href: "/dashboard/create", highlight: true },
-      { label: "Posts", icon: Grid, href: "/dashboard/posts" },
-      { label: "Scheduler", icon: Calendar, href: "/dashboard/scheduler" },
-      { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" }
+      { label: "Create", icon: PlusCircle, href: "/posts/new", highlight: true },
+      { label: "Content", icon: FileText, href: "/posts" },
+      { label: "Calendar", icon: Calendar, href: "/scheduler" },
+      { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" },
+      { label: "Insights", icon: BarChart2, href: "/analytics" }
     ]
   },
   {
@@ -67,6 +41,13 @@ const navSections = [
     items: [{ label: "Settings", icon: Settings, href: "/dashboard/settings" }]
   }
 ] as const;
+
+const isActiveRoute = (pathname: string, href: string): boolean => {
+  if (href === "/posts" && pathname === "/posts/new") {
+    return false;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
 
 const getInitials = (name: string | null | undefined): string => {
   if (!name) {
@@ -106,12 +87,14 @@ export function Sidebar() {
           <div key={section.label} className="space-y-1">
             {!isCollapsed ? <p className="label-xs px-2">{section.label}</p> : null}
             {section.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active = isActiveRoute(pathname, item.href);
               const isHighlighted = "highlight" in item && item.highlight;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "group flex items-center rounded-lg border-l-2 px-2 py-2 text-sm transition-all",
                     active

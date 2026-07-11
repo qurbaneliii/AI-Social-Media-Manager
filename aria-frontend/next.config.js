@@ -20,6 +20,36 @@ const nextConfig = {
         source: "/AI-Social-Media-Manager/:path*",
         destination: "/:path*",
         permanent: false
+      },
+      {
+        source: "/dashboard/create",
+        destination: "/posts/new",
+        permanent: false
+      },
+      {
+        source: "/dashboard/content-studio",
+        destination: "/posts/new",
+        permanent: false
+      },
+      {
+        source: "/dashboard/content",
+        destination: "/posts",
+        permanent: false
+      },
+      {
+        source: "/dashboard/posts",
+        destination: "/posts",
+        permanent: false
+      },
+      {
+        source: "/dashboard/scheduler",
+        destination: "/scheduler",
+        permanent: false
+      },
+      {
+        source: "/dashboard/analytics",
+        destination: "/analytics",
+        permanent: false
       }
     ];
   }

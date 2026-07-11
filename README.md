@@ -15,12 +15,12 @@ Social media workflows often spread strategy, copywriting, review, scheduling, a
 ## Features
 
 - Guided content-generation workflow for topic, platform, draft, review, refinement, and scheduling steps
-- Brand-aware AI generation paths with configurable provider settings and mock mode
+- Brand-aware AI generation through the canonical llm-orchestration backend, with explicit mock mode
 - Approval queue and review-oriented frontend UX
 - Scheduling and time-optimization service modules
 - Content-analysis, caption-generation, hashtag/SEO, visual-understanding, and audience-targeting service areas
 - Docker Compose stack for local infrastructure including Postgres, Redis, Kafka, and Temporal
-- Static GitHub Pages frontend deployment workflow for public demo access
+- Vercel frontend, Render backend, and Supabase database/auth-aligned storage path for the MVP
 - Architecture, API contract, verification, and phase-summary documentation
 
 ## Tech Stack
@@ -29,7 +29,7 @@ Social media workflows often spread strategy, copywriting, review, scheduling, a
 | --- | --- |
 | Frontend | Next.js, React, TypeScript, Tailwind CSS, Radix UI |
 | Backend / Services | Python, FastAPI-style service modules, TypeScript API package |
-| AI / LLM | OpenAI-compatible provider configuration, mock mode, prompt templates |
+| AI / LLM | Python llm-orchestration gateway, backend-only OpenAI-compatible provider configuration, explicit mock mode, prompt templates |
 | Data / Infra | PostgreSQL, Redis, Kafka, Temporal, Docker Compose |
 | Tooling | pnpm, npm, Turbo, Prisma, GitHub Actions |
 
@@ -37,15 +37,16 @@ Social media workflows often spread strategy, copywriting, review, scheduling, a
 
 The repository contains two major application areas:
 
-- `aria-frontend/`: Next.js frontend used for the product UI and GitHub Pages static demo.
+- `aria-frontend/`: canonical Next.js frontend used for the product UI.
 - `aria/`: monorepo-style service workspace with API, dashboard, AI service packages, typed contracts, database package, and orchestration-related modules.
+- `aria/apps/llm-orchestration/`: canonical FastAPI AI orchestration backend for generation, Brand Brain, approval, and workspace APIs.
 
 The root-level `apps/` and `packages/` folders contain earlier or extracted Python service modules for content analysis, visual understanding, hashtag/SEO, scheduling, time optimization, caption generation, and prompt/decision logic.
 
 ```mermaid
 flowchart LR
   user["User / reviewer"] --> frontend["Next.js frontend"]
-  frontend --> api["API / service layer"]
+  frontend --> api["llm-orchestration FastAPI backend"]
   api --> llm["LLM provider or mock mode"]
   api --> db["PostgreSQL"]
   api --> redis["Redis"]
@@ -58,12 +59,12 @@ flowchart LR
 
 ```text
 .
-  aria-frontend/        Next.js frontend and static demo build
+  aria-frontend/        Canonical Next.js frontend
   aria/                 Monorepo workspace for API, dashboard, packages, and service modules
   apps/                 Python AI service modules
   packages/             Shared Python packages and prompt/type assets
   docs/                 Architecture and product documentation
-  .github/workflows/    GitHub Pages deployment
+  .github/workflows/    CI and legacy/static-demo workflow history
   docker-compose.yml    Local infrastructure stack
   .env.example          Root environment example
 ```
@@ -123,9 +124,10 @@ Important variables include:
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string |
-| `OPENAI_API_KEY` | Optional OpenAI key for non-mock AI generation |
+| `OPENAI_API_KEY` | Backend-only optional provider key for non-mock AI generation |
 | `OPENAI_MODEL` | Model name for OpenAI-compatible calls |
 | `AI_MOCK_MODE` | Enables deterministic/mock AI behavior for local development |
+| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Frontend URL for the canonical Render/FastAPI backend |
 | `TEMPORAL_ADDRESS` | Temporal service address for workflow-oriented components |
 
 Do not commit real secrets. Keep real values in local `.env` files or deployment secret stores.
@@ -135,7 +137,7 @@ Do not commit real secrets. Keep real values in local `.env` files or deployment
 | Location | Command | Purpose |
 | --- | --- | --- |
 | `aria-frontend/` | `npm run dev` | Start frontend development server |
-| `aria-frontend/` | `npm run build` | Build the frontend/static export |
+| `aria-frontend/` | `npm run build` | Build the frontend |
 | `aria-frontend/` | `npm run typecheck` | Run TypeScript checks |
 | `aria/` | `pnpm dev` | Run monorepo dev tasks with Turbo |
 | `aria/` | `pnpm build` | Run monorepo build tasks |
@@ -144,6 +146,9 @@ Do not commit real secrets. Keep real values in local `.env` files or deployment
 
 ## Documentation
 
+- [Canonical architecture](docs/architecture/CANONICAL_ARCHITECTURE.md)
+- [ARIA baseline report](docs/audits/ARIA_BASELINE_REPORT.md)
+- [Verification report](docs/testing/VERIFICATION_REPORT.md)
 - [Full system architecture](docs/full-system-architecture.md)
 - [Local run guide](LOCAL_RUN_GUIDE.md)
 - [AI architecture](AI_ARCHITECTURE.md)
@@ -158,20 +163,21 @@ No screenshot assets were found in the repository root documentation. Add screen
 
 Status: Active product-style MVP / prototype.
 
-The repository contains substantial implementation and documentation, but it should not be described as production-ready until deployment, authentication, monitoring, data persistence, and external service behavior are verified end to end.
+The canonical MVP path is `aria-frontend` on Vercel, `aria/apps/llm-orchestration` on Render, and Supabase for database/auth-aligned storage. The repository contains substantial implementation and documentation, but it should not be described as production-ready until deployment, authentication, monitoring, data persistence, and external service behavior are verified end to end.
 
 ## Roadmap
 
 - Consolidate duplicated root-level and `aria/` service structures where possible
 - Add screenshot/demo assets to the README
 - Keep only CI workflows that match the current app structure
-- Add a short architecture decision record for provider routing and mock mode
+- Continue removing duplicate legacy dashboard routes after each redirect is verified
 - Add lightweight smoke tests for the public demo build
 
 ## Known Limitations
 
 - Some services depend on local infrastructure or placeholder environment values.
-- Hosted GitHub Pages can only demonstrate the frontend/static path, not the full backend stack.
+- Legacy frontend provider routes return `410`; normal product flows must use the llm-orchestration backend.
+- Hosted static output can only demonstrate the frontend/static path, not the full backend stack.
 - Several phase-summary documents are useful for audit history but make the root directory noisy.
 - Real social platform publishing credentials and production deployment details are not included.
 

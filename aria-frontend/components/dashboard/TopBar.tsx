@@ -37,24 +37,14 @@ const previewModeEnabled =
   process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
 
 const commandActions = [
-  { label: "Brand Dashboard", href: "/dashboard/brand", shortcut: "G B" },
-  { label: "AI Workspace", href: "/dashboard/ai", shortcut: "G I" },
-  { label: "Brand Brain", href: "/dashboard/brand-brain", shortcut: "G N" },
-  { label: "Strategy", href: "/dashboard/strategy", shortcut: "G Y" },
-  { label: "Trends", href: "/dashboard/trends", shortcut: "G X" },
-  { label: "Competitors", href: "/dashboard/competitors", shortcut: "G E" },
-  { label: "Content Studio", href: "/dashboard/content-studio", shortcut: "G D" },
-  { label: "AI Analyst", href: "/dashboard/ai-analyst", shortcut: "G L" },
-  { label: "Calendar AI", href: "/dashboard/calendar-ai", shortcut: "G K" },
-  { label: "Community AI", href: "/dashboard/community-ai", shortcut: "G M" },
-  { label: "Reports AI", href: "/dashboard/reports-ai", shortcut: "G R" },
-  { label: "Content Dashboard", href: "/dashboard/content", shortcut: "G C" },
-  { label: "Create Post", href: "/dashboard/create", shortcut: "G P" },
-  { label: "Analytics", href: "/dashboard/analytics", shortcut: "G A" },
-  { label: "Posts", href: "/dashboard/posts", shortcut: "G O" },
-  { label: "Scheduler", href: "/dashboard/scheduler", shortcut: "G S" },
-  { label: "Approval", href: "/dashboard/approval", shortcut: "G Q" },
-  { label: "Settings", href: "/dashboard/settings", shortcut: "G T" }
+  { label: "Overview", href: "/dashboard/brand", shortcut: "G O" },
+  { label: "Brand Brain", href: "/dashboard/brand-brain", shortcut: "G B" },
+  { label: "Create", href: "/posts/new", shortcut: "G C" },
+  { label: "Content", href: "/posts", shortcut: "G P" },
+  { label: "Calendar", href: "/scheduler", shortcut: "G K" },
+  { label: "Approval", href: "/dashboard/approval", shortcut: "G A" },
+  { label: "Insights", href: "/analytics", shortcut: "G I" },
+  { label: "Settings", href: "/dashboard/settings", shortcut: "G S" }
 ] as const;
 
 const getInitials = (name: string | null | undefined): string => {

@@ -7,6 +7,7 @@ import { getBasePath } from "@/lib/navigate";
 
 export const useRequireAuth = () => {
   const auth = useAuth();
+  const { isAuthenticated, isLoading, refreshUser, user } = auth;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -27,16 +28,16 @@ export const useRequireAuth = () => {
       return;
     }
 
-    if (!auth.user) {
-      void auth.refreshUser();
+    if (!user) {
+      void refreshUser();
     }
-  }, [auth.refreshUser, auth.user]);
+  }, [refreshUser, user]);
 
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated && typeof window !== "undefined") {
+    if (!isLoading && !isAuthenticated && typeof window !== "undefined") {
       window.location.href = `${getBasePath()}/login`;
     }
-  }, [auth.isAuthenticated, auth.isLoading]);
+  }, [isAuthenticated, isLoading]);
 
   return auth;
 };
