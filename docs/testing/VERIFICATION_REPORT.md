@@ -18,6 +18,28 @@ Results:
 - `npm run lint`: passed.
 - `npm run typecheck`: passed.
 - `npm run build`: passed on the D: checkout. First retry hit a Windows `EPERM` rename while Prisma generated `query_engine-windows.dll.node`; a stale repo-owned `next start -p 3100` process was stopped and the build then passed.
+- `npm run typecheck`: passed after shared navigation consolidation.
+- `npm run lint`: passed after shared navigation consolidation.
+- `npm run build`: passed after shared navigation consolidation.
+
+Local production server route smoke:
+
+```powershell
+cd aria-frontend
+npm run start -- -p 3100
+```
+
+| Route | Result |
+| --- | --- |
+| `/posts/new` | `200` |
+| `/posts` | `200` |
+| `/dashboard/brand` | `200` |
+| `/dashboard/approval` | `200` |
+| `/analytics` | `200` |
+| `/scheduler` | `200` |
+| `/dashboard/create` | `307` to `/posts/new` |
+| `/dashboard/content-studio` | `307` to `/posts/new` |
+| `POST /api/ai/generate-content` | `410`, `x-aria-deprecated-route: frontend-provider-direct` |
 
 ```powershell
 $env:PYTHONPATH='aria/apps/llm-orchestration/app'
@@ -40,6 +62,7 @@ Result after approval queue remediation: `53 passed, 2 skipped`.
 - Removed fake Render `OPENAI_API_KEY=replace-me` and switched the Render branch to `main`.
 - Repaired aggregate approval queue filtering and pagination semantics.
 - Added regression tests for cross-type approval status filters and global aggregate pagination.
+- Consolidated frontend navigation, route matching, role visibility, mobile nav, and role redirects into `aria-frontend/lib/navigation.ts`.
 
 ## Not Verified
 

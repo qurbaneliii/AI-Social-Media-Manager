@@ -43,10 +43,73 @@ Primary navigation is converging to:
 
 Mobile navigation is capped at five destinations: Overview, Create, Content, Approval, More.
 
+The single frontend navigation source is `aria-frontend/lib/navigation.ts`. Role-aware shell navigation, legacy dashboard sidebar navigation, mobile navigation, route matching, and login redirects must derive from this module rather than local route arrays.
+
+## Architecture Flows
+
+### Browser Request Flow
+
+```mermaid
+flowchart LR
+  Browser["Browser"] --> Frontend["aria-frontend on Vercel"]
+  Frontend --> CoreAPI["/v1/* core API"]
+  Frontend --> AIBackend["/internal/ai/* llm-orchestration"]
+  AIBackend --> Supabase["Supabase Postgres"]
+  AIBackend --> LLM["Centralized LLMClient"]
+```
+
+### Content Generation Flow
+
+```mermaid
+flowchart TD
+  Create["/posts/new guided workflow"] --> Backend["Canonical backend request"]
+  Backend --> Brand["Brand Brain / Brand Memory"]
+  Brand --> Prompts["Versioned Prompt Registry"]
+  Prompts --> LLM["LLMClient"]
+  LLM --> Quality["Quality and risk review"]
+  Quality --> Draft["Persisted draft"]
+  Draft --> Approval["Approval queue"]
+```
+
+### Approval Lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> Draft
+  Draft --> InReview: submit
+  InReview --> Approved: approve
+  InReview --> Rejected: reject
+  InReview --> ChangesRequested: request changes
+  ChangesRequested --> InReview: resubmit
+  Approved --> Archived: archive
+  Rejected --> Archived: archive
+```
+
+Approved content is not the same as externally published content. Ready for scheduling is not the same as an external platform schedule.
+
+### Deployment Topology
+
+```mermaid
+flowchart LR
+  GitHub["GitHub PR branch"] --> Vercel["Vercel frontend: aria-frontend"]
+  GitHub --> Render["Render backend: aria/apps/llm-orchestration"]
+  Render --> Supabase["Supabase Postgres + pgvector"]
+  Vercel --> Render
+```
+
+### Demo And Mock Boundary
+
+```mermaid
+flowchart TD
+  Runtime["Runtime request"] --> Mode{"Explicit mock/demo mode?"}
+  Mode -->|yes| Mock["Mock adapters labelled in UI/docs"]
+  Mode -->|no| Real["Configured backend + provider path"]
+  Real --> Failure["Fail loudly if required production env is missing"]
+```
+
 ## Remaining Consolidation Work
 
 - Legacy `/dashboard/*` module pages still exist and need route-by-route retirement or migration after behavior is verified.
 - Root-level `apps/` and `packages/` still overlap with `aria/apps/` and `aria/packages/`.
 - Frontend contracts are still handwritten and should be synchronized from the FastAPI OpenAPI schema.
 - Backend `main.py` still owns too much routing logic and should be split into routers and dependencies in a later phase.
-

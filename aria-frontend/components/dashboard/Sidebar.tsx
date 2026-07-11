@@ -3,51 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart2,
-  Brain,
-  Calendar,
   ChevronsLeft,
   ChevronsRight,
-  FileText,
-  LayoutDashboard,
   LogOut,
-  PlusCircle,
-  ShieldCheck,
-  Settings,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
+import { getNavigationSections, isActiveRoute } from "@/lib/navigation";
 import { useDashboardStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-
-const navSections = [
-  {
-    label: "Main",
-    items: [
-      { label: "Overview", icon: LayoutDashboard, href: "/dashboard/brand" },
-      { label: "Brand Brain", icon: Brain, href: "/dashboard/brand-brain" },
-      { label: "Create", icon: PlusCircle, href: "/posts/new", highlight: true },
-      { label: "Content", icon: FileText, href: "/posts" },
-      { label: "Calendar", icon: Calendar, href: "/scheduler" },
-      { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" },
-      { label: "Insights", icon: BarChart2, href: "/analytics" }
-    ]
-  },
-  {
-    label: "Settings",
-    items: [{ label: "Settings", icon: Settings, href: "/dashboard/settings" }]
-  }
-] as const;
-
-const isActiveRoute = (pathname: string, href: string): boolean => {
-  if (href === "/posts" && pathname === "/posts/new") {
-    return false;
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-};
 
 const getInitials = (name: string | null | undefined): string => {
   if (!name) {
@@ -64,6 +31,7 @@ const getInitials = (name: string | null | undefined): string => {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const navSections = getNavigationSections(user?.role ?? null);
 
   const isCollapsed = useDashboardStore((state) => state.sidebarCollapsed);
   const setCollapsed = useDashboardStore((state) => state.setSidebarCollapsed);
@@ -88,7 +56,7 @@ export function Sidebar() {
             {!isCollapsed ? <p className="label-xs px-2">{section.label}</p> : null}
             {section.items.map((item) => {
               const active = isActiveRoute(pathname, item.href);
-              const isHighlighted = "highlight" in item && item.highlight;
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
@@ -100,10 +68,10 @@ export function Sidebar() {
                     active
                       ? "border-l-[var(--brand-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
                       : "border-l-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]",
-                    isHighlighted && !active ? "text-[var(--brand-primary)]" : ""
+                    item.highlight && !active ? "text-[var(--brand-primary)]" : ""
                   )}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   {!isCollapsed ? <span className="ml-2 truncate">{item.label}</span> : null}
                 </Link>
               );

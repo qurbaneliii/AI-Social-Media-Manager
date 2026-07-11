@@ -2,32 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, LayoutDashboard, MoreHorizontal, PlusCircle, ShieldCheck } from "lucide-react";
 
+import { useAuth } from "@/context/AuthContext";
+import { getMobileNavigationItems, isActiveRoute } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard, href: "/dashboard/brand" },
-  { label: "Create", icon: PlusCircle, href: "/posts/new" },
-  { label: "Content", icon: FileText, href: "/posts" },
-  { label: "Approval", icon: ShieldCheck, href: "/dashboard/approval" },
-  { label: "More", icon: MoreHorizontal, href: "/dashboard/settings" }
-] as const;
-
-const isActiveRoute = (pathname: string, href: string): boolean => {
-  if (href === "/posts" && pathname === "/posts/new") {
-    return false;
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-};
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const navItems = getMobileNavigationItems(user?.role ?? null);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--bg-surface)_92%,transparent)] p-2 backdrop-blur lg:hidden">
       {navItems.map((item) => {
         const active = isActiveRoute(pathname, item.href);
+        const Icon = item.icon;
         return (
           <Link
             key={item.href}
@@ -38,7 +27,7 @@ export function MobileNav() {
               active ? "text-[var(--brand-primary)]" : "text-[var(--text-muted)]"
             )}
           >
-            <item.icon className="h-4 w-4" />
+            <Icon className="h-4 w-4" />
             <span>{item.label}</span>
           </Link>
         );

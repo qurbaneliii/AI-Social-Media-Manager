@@ -1,0 +1,41 @@
+# ARIA Migration And Deprecation Plan
+
+Date: 2026-07-11
+
+Detailed phase rollback entries are tracked in `docs/audits/ARIA_MIGRATION_ROLLBACK_LOG.md`.
+
+## Current Branch
+
+`codex/aria-full-architecture-ui-ux-remediation`
+
+## Active Deprecations
+
+| Area | Deprecated path | Canonical path | Current action |
+| --- | --- | --- | --- |
+| Frontend AI provider routes | `/api/generate`, `/api/ai/*` generation helpers | backend `/internal/ai/*` and `/v1/posts/generate` | Return `410 FRONTEND_PROVIDER_ROUTE_RETIRED` |
+| Create routes | `/dashboard/create`, `/dashboard/content-studio` | `/posts/new` | Redirect configured |
+| Content routes | `/dashboard/content`, `/dashboard/posts` | `/posts` | Redirect configured |
+| Scheduler route | `/dashboard/scheduler` | `/scheduler` | Redirect configured |
+| Analytics route | `/dashboard/analytics` | `/analytics` | Redirect configured |
+| Navigation arrays | local arrays in layouts/sidebar/mobile nav | `aria-frontend/lib/navigation.ts` | Consolidated |
+
+## Removal Rules
+
+Before removing or moving a file, run repository searches for:
+
+- static imports;
+- dynamic imports;
+- route references;
+- Docker references;
+- workflow references;
+- package scripts;
+- documentation links;
+- tests;
+- deployment manifests.
+
+## Rollback Strategy
+
+- Each remediation phase must be independently revertible by commit.
+- No production database migrations are rewritten.
+- Data-affecting migrations must be additive and reversible where possible.
+- Compatibility tombstones may remain until external consumers are proven absent.

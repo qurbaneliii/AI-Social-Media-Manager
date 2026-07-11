@@ -55,6 +55,7 @@ Current remediation commit at audit start: `cf1bdf0`
 - Legacy desktop navigation was reduced to this IA in `aria-frontend/app/dashboard/layout.tsx`.
 - Mobile nav was capped to Overview, Create, Content, Approval, More.
 - Active matching for `/posts/new` versus `/posts` now uses exact/segment-safe matching in both dashboard shells.
+- `aria-frontend/lib/navigation.ts` now centralizes labels, hrefs, icons, role visibility, route matching, mobile primary destinations, and role default redirects.
 - Remaining issue: command palette, quick actions, cards, and legacy module links still need a full orphan-link pass.
 
 ## Frontend API-Call Inventory
@@ -146,6 +147,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 - Removed frontend provider SDK dependencies.
 - Fixed `/posts/new` versus `/posts` active-route collision.
 - Reduced legacy navigation to the target IA and mobile cap.
+- Consolidated duplicated navigation arrays into one typed source of truth.
 - Added overlap redirects from legacy dashboard content/create routes.
 - Repaired aggregate approval queue status filtering and global pagination behavior.
 - Added backend regression tests for approval aggregate status and pagination.
