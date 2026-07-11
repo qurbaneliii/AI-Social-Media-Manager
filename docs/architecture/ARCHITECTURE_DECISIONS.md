@@ -29,7 +29,8 @@ Evidence:
 Consequence:
 
 - Frontend provider routes are compatibility tombstones only.
-- Legacy `/run` and `LiteLLMAdapter` behavior must be isolated or retired in a later phase.
+- Legacy `/run` and `LiteLLMAdapter` behavior are not canonical provider paths.
+- Legacy caption generation is explicitly demo-only and must not handle configured provider keys.
 
 ## ADR-003: Canonical Navigation Source
 
@@ -53,3 +54,18 @@ Consequence:
 
 - GitHub Pages/static export may exist only as an explicit demo path.
 - Production must not silently fall back to localhost, mock data, or fake provider results.
+
+## ADR-005: Legacy Provider Isolation
+
+Decision: `LiteLLMAdapter` in `main.py` is isolated as a legacy demo adapter. It refuses configured provider keys and no longer reports fabricated token usage.
+
+Evidence:
+
+- The canonical provider path is `ai/llm/client.py` through `AIOrchestrator`.
+- The legacy caption endpoint creates deterministic variants locally and is not a real provider call.
+
+Consequence:
+
+- `/internal/captions/generate` emits `x-aria-deprecated-route: legacy-caption-generator` and `x-aria-demo-mode: true`.
+- `/run` emits `x-aria-deprecated-route: legacy-orchestration-run`.
+- Any future real caption generation must use the canonical backend AI gateway rather than re-enabling this adapter.

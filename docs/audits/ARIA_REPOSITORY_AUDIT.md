@@ -83,7 +83,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 | Approval detail/audit | `GET /internal/ai/approval/detail/*`, `GET /internal/ai/approval/audit/*` | not centrally enforced | required for detail | Keep; add tenant scoping |
 | Approval queues | typed and aggregate queue endpoints | not centrally enforced | required | Fixed aggregate status/pagination; still needs total-count query support |
 | Draft aliases | `GET /internal/ai/drafts/content`, calendar, community | not centrally enforced | required | Backward-compatible aliases |
-| Legacy captions/run | `/internal/captions/generate`, `/run` | mixed | creates dependencies inside requests | Deprecate or isolate from canonical backend |
+| Legacy captions/run | `/internal/captions/generate`, `/run` | mixed | creates dependencies inside requests | Isolated with deprecation/demo headers; still needs router split |
 
 ## LLM-Call Inventory
 
@@ -91,7 +91,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 | --- | --- | --- | --- | --- |
 | `ai/llm/client.py` | OpenAI chat completions through `https://api.openai.com/v1/chat/completions` | prompt registry and typed agent schemas | `LLMSettings.is_mock_enabled` when `AI_MOCK_MODE=true`, no key, or `replace-me` | Canonical provider gateway |
 | `ai/agents/*` | `LLMClient` injected into orchestrator/agents | domain request/response models | deterministic mock client path | Keep |
-| `main.py` `LiteLLMAdapter` | no real provider call; returns deterministic captions | legacy `CaptionRequest` | placeholder even when configured | Retire or explicitly mark as demo-only |
+| `main.py` `LiteLLMAdapter` | no real provider call; returns deterministic captions | legacy `CaptionRequest` | explicitly demo-only; refuses configured provider keys; no fake token usage | Retire after callers are migrated |
 | root `apps/*` services | `/v1/llm/proxy/chat` references | service-specific prompts | unknown | Non-canonical unless deployed by root docker-compose |
 | frontend provider routes | formerly OpenAI/Anthropic | deleted helpers/tombstones | no generation | Retired |
 
@@ -151,6 +151,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 - Added overlap redirects from legacy dashboard content/create routes.
 - Repaired aggregate approval queue status filtering and global pagination behavior.
 - Added backend regression tests for approval aggregate status and pagination.
+- Isolated legacy caption/provider behavior behind demo/deprecation headers and regression tests.
 
 ## Remaining Phase Decisions
 

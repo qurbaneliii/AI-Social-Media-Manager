@@ -18,6 +18,9 @@ Detailed phase rollback entries are tracked in `docs/audits/ARIA_MIGRATION_ROLLB
 | Scheduler route | `/dashboard/scheduler` | `/scheduler` | Redirect configured |
 | Analytics route | `/dashboard/analytics` | `/analytics` | Redirect configured |
 | Navigation arrays | local arrays in layouts/sidebar/mobile nav | `aria-frontend/lib/navigation.ts` | Consolidated |
+| Legacy caption route | `/internal/captions/generate` | `/internal/ai/generate-content-package` or canonical generation contract | Explicit demo/deprecated headers |
+| Legacy orchestration route | `/run` | canonical `/internal/ai/*` and `/v1/*` flows | Explicit deprecated header |
+| Legacy provider adapter | `LiteLLMAdapter` in `main.py` | `ai/llm/client.py` via `AIOrchestrator` | Refuses configured provider keys |
 
 ## Removal Rules
 

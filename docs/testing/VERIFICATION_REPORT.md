@@ -48,7 +48,7 @@ $env:OPENAI_API_KEY='replace-me'
 python -m pytest aria/apps/llm-orchestration/tests -q -rA
 ```
 
-Result after approval queue remediation: `53 passed, 2 skipped`.
+Result after approval queue and legacy provider isolation remediation: `55 passed, 2 skipped`.
 
 ## Fixed During This Pass
 
@@ -63,6 +63,8 @@ Result after approval queue remediation: `53 passed, 2 skipped`.
 - Repaired aggregate approval queue filtering and pagination semantics.
 - Added regression tests for cross-type approval status filters and global aggregate pagination.
 - Consolidated frontend navigation, route matching, role visibility, mobile nav, and role redirects into `aria-frontend/lib/navigation.ts`.
+- Isolated legacy caption generation as explicit demo/deprecated behavior.
+- Added regression tests proving the legacy adapter refuses configured provider keys instead of returning fake provider output.
 
 ## Not Verified
 

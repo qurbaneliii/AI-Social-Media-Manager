@@ -8,13 +8,12 @@ from typing import Any, Literal
 
 import httpx
 import redis
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ai.agents import AIOrchestrator
 from ai.approval import (
@@ -152,33 +151,23 @@ class LiteLLMAdapter:
     def __init__(self, provider_keys: dict[str, str | None]) -> None:
         self.provider_keys = provider_keys
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
     async def chat(self, provider: str, model: str, messages: list[Message], response_format: str = "json") -> dict[str, Any]:
         key = self.provider_keys.get(provider)
         prompt = "\n".join([f"{m.role}: {m.content}" for m in messages])
 
-        # A deterministic fallback path keeps service behavior stable when external model keys are absent.
-        if not key:
-            return {
-                "provider_used": provider,
-                "model_used": model,
-                "output": {
-                    "summary": prompt[:200],
-                    "variants": 3,
-                }
-                if response_format == "json"
-                else prompt[:200],
-                "token_usage": {"input": max(1, len(prompt) // 4), "output": 96},
-            }
-
+        if key:
+            raise RuntimeError("Legacy LiteLLMAdapter is demo-only and must not handle configured provider keys.")
         return {
-            "provider_used": provider,
+            "provider_used": "demo",
             "model_used": model,
             "output": {
                 "summary": prompt[:200],
                 "variants": 3,
-            },
-            "token_usage": {"input": max(1, len(prompt) // 4), "output": 96},
+            }
+            if response_format == "json"
+            else prompt[:200],
+            "mock_mode": True,
+            "token_usage": None,
         }
 
 
@@ -914,7 +903,13 @@ async def ai_list_community_reply_drafts(
 
 
 @app.post("/internal/captions/generate", response_model=CaptionResponse)
-async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends(get_deps)) -> CaptionResponse:
+async def caption_generate(
+    payload: CaptionRequest,
+    response: Response,
+    deps: Dependencies = Depends(get_deps),
+) -> CaptionResponse:
+    response.headers["x-aria-deprecated-route"] = "legacy-caption-generator"
+    response.headers["x-aria-demo-mode"] = "true"
     variants: list[CaptionVariant] = []
 
     for platform in payload.target_platforms:
@@ -927,8 +922,8 @@ async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends
             ),
         )
 
-        llm_res = await deps.adapter.chat("openai", "gpt-4o-mini", [base_system, base_user], response_format="json")
-        seed = llm_res["token_usage"]["input"]
+        await deps.adapter.chat("openai", "gpt-4o-mini", [base_system, base_user], response_format="json")
+        seed = len(platform) + len(payload.core_message)
         for i in range(3):
             caption = f"{payload.core_message} | {platform} variant {i + 1}"
             hashtags = [f"#{platform}", "#ai", "#socialmedia", f"#v{i + 1}"]
@@ -940,7 +935,12 @@ async def caption_generate(payload: CaptionRequest, deps: Dependencies = Depends
 
 
 @app.post("/run", response_model=OrchestrateResponse)
-async def orchestrate(payload: OrchestrateRequest, deps: Dependencies = Depends(get_deps)) -> OrchestrateResponse:
+async def orchestrate(
+    payload: OrchestrateRequest,
+    response: Response,
+    deps: Dependencies = Depends(get_deps),
+) -> OrchestrateResponse:
+    response.headers["x-aria-deprecated-route"] = "legacy-orchestration-run"
     timeout = httpx.Timeout(20.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         content_req = client.post(
@@ -1020,8 +1020,10 @@ async def orchestrate(payload: OrchestrateRequest, deps: Dependencies = Depends(
             tone_fingerprint=content_data.get("tone_fingerprint_json", {}),
             visual_profile={"palette": visual_data.get("palette", [])},
         ),
+        response,
         deps,
     )
+    response.headers["x-aria-deprecated-route"] = "legacy-orchestration-run"
 
     required_modules = {
         "content_analysis": content_data,
