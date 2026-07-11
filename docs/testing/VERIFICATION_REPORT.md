@@ -17,7 +17,7 @@ Results:
 - `npm ci`: passed with 8 audit findings and a Next.js deprecation/security warning for `next@15.3.2`.
 - `npm run lint`: passed.
 - `npm run typecheck`: passed.
-- `npm run build`: passed on the D: checkout.
+- `npm run build`: passed on the D: checkout. First retry hit a Windows `EPERM` rename while Prisma generated `query_engine-windows.dll.node`; a stale repo-owned `next start -p 3100` process was stopped and the build then passed.
 
 ```powershell
 $env:PYTHONPATH='aria/apps/llm-orchestration/app'
@@ -26,7 +26,7 @@ $env:OPENAI_API_KEY='replace-me'
 python -m pytest aria/apps/llm-orchestration/tests -q -rA
 ```
 
-Result: `50 passed, 2 skipped`.
+Result after approval queue remediation: `53 passed, 2 skipped`.
 
 ## Fixed During This Pass
 
@@ -38,6 +38,8 @@ Result: `50 passed, 2 skipped`.
 - Reduced legacy shell navigation to the canonical primary IA and capped mobile navigation at five items.
 - Added redirects from duplicate legacy dashboard pages to canonical role-aware pages.
 - Removed fake Render `OPENAI_API_KEY=replace-me` and switched the Render branch to `main`.
+- Repaired aggregate approval queue filtering and pagination semantics.
+- Added regression tests for cross-type approval status filters and global aggregate pagination.
 
 ## Not Verified
 

@@ -19,7 +19,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from ai.agents import AIOrchestrator
 from ai.approval import (
     ApprovalAction,
-    ApprovalAuditEvent,
     ApprovalDecision,
     ApprovalObjectType,
     ApprovalResult,
@@ -384,32 +383,36 @@ def _queue_filters(
     )
 
 
+VALID_APPROVAL_STATUSES_BY_TYPE: dict[ApprovalObjectType, set[str]] = {
+    ApprovalObjectType.CONTENT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+    ApprovalObjectType.CALENDAR_DRAFT: {
+        "draft",
+        "in_review",
+        "approved",
+        "rejected",
+        "changes_requested",
+        "ready_for_scheduling",
+        "archived",
+    },
+    ApprovalObjectType.COMMUNITY_REPLY: {
+        "draft",
+        "in_review",
+        "approved",
+        "rejected",
+        "changes_requested",
+        "escalated",
+        "archived",
+    },
+    ApprovalObjectType.REPORT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
+}
+
+
+def _status_matches_queue(object_type: ApprovalObjectType, status: str | None) -> bool:
+    return status is None or status in VALID_APPROVAL_STATUSES_BY_TYPE[object_type]
+
+
 def _validate_status_for_queue(object_type: ApprovalObjectType, status: str | None) -> None:
-    if not status:
-        return
-    allowed = {
-        ApprovalObjectType.CONTENT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
-        ApprovalObjectType.CALENDAR_DRAFT: {
-            "draft",
-            "in_review",
-            "approved",
-            "rejected",
-            "changes_requested",
-            "ready_for_scheduling",
-            "archived",
-        },
-        ApprovalObjectType.COMMUNITY_REPLY: {
-            "draft",
-            "in_review",
-            "approved",
-            "rejected",
-            "changes_requested",
-            "escalated",
-            "archived",
-        },
-        ApprovalObjectType.REPORT_DRAFT: {"draft", "in_review", "approved", "rejected", "changes_requested", "archived"},
-    }
-    if status not in allowed[object_type]:
+    if not _status_matches_queue(object_type, status):
         raise HTTPException(status_code=400, detail=f"Invalid status for {object_type.value}: {status}")
 
 
@@ -813,24 +816,32 @@ async def ai_list_approval_queue(
         created_before=created_before,
     )
     object_types = [filters.object_type] if filters.object_type else list(ApprovalObjectType)
+    if filters.object_type:
+        _validate_status_for_queue(filters.object_type, filters.status)
+    else:
+        object_types = [queue_type for queue_type in object_types if _status_matches_queue(queue_type, filters.status)]
+        if not object_types:
+            raise HTTPException(status_code=400, detail=f"Invalid status for every approval object type: {filters.status}")
+
     items: list[Any] = []
+    page_fetch_limit = filters.offset + filters.limit
     for queue_type in object_types:
-        _validate_status_for_queue(queue_type, filters.status)
         if queue_type == ApprovalObjectType.CONTENT_DRAFT:
-            rows = await repository.list_content_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_content_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(content_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.CALENDAR_DRAFT:
-            rows = await repository.list_calendar_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_calendar_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(calendar_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.COMMUNITY_REPLY:
-            rows = await repository.list_community_reply_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_community_reply_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(community_queue_item_from_row(row) for row in rows)
         elif queue_type == ApprovalObjectType.REPORT_DRAFT:
-            rows = await repository.list_report_drafts(filters.brand_id, filters.status, filters.platform, filters.limit, filters.offset, filters.created_after, filters.created_before)
+            rows = await repository.list_report_drafts(filters.brand_id, filters.status, filters.platform, page_fetch_limit, 0, filters.created_after, filters.created_before)
             items.extend(report_queue_item_from_row(row) for row in rows)
     items.sort(key=lambda item: item.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    items = items[: filters.limit]
-    return ApprovalQueueResponse(items=items, count=len(items), limit=filters.limit, offset=filters.offset)
+    total_visible = len(items)
+    page = items[filters.offset : filters.offset + filters.limit]
+    return ApprovalQueueResponse(items=page, count=total_visible, limit=filters.limit, offset=filters.offset)
 
 
 @app.get("/internal/ai/drafts/content", response_model=ContentApprovalQueueResponse)
