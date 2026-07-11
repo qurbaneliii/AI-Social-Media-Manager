@@ -78,10 +78,11 @@ Decision: `main.py` should initialize the FastAPI app and include routers; route
 Evidence:
 
 - The public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` contracts are now isolated in `api/routers/public_runtime.py`.
+- Brand Brain context and profile routes are now isolated in `api/routers/workspace.py`.
 - Runtime dependencies shared by route modules live in `api/dependencies.py`.
 - Existing public runtime tests still import the app through `main.py`, proving the deployed Render entrypoint remains stable.
 
 Consequence:
 
 - Future backend route extraction should preserve public contracts and add or keep route registration tests before moving behavior.
-- Internal AI, approval, Brand Brain, and legacy route families still need later router splits.
+- Generation, approval, and legacy route families still need later router splits.

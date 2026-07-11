@@ -12,7 +12,7 @@ Current remediation commit at audit start: `cf1bdf0`
 - The role-aware frontend shell under `aria-frontend/app/(dashboard)` is the canonical product shell for normal workflows.
 - Legacy dashboard routes under `aria-frontend/app/dashboard` still exist and must be retired, redirected, or migrated route by route.
 - Direct frontend AI provider routes are now retired with explicit `410 FRONTEND_PROVIDER_ROUTE_RETIRED` responses.
-- The backend route monolith has started to split: `main.py` initializes the FastAPI app and includes the public runtime router, but still owns most internal AI, approval, Brand Brain, and legacy routes.
+- The backend route monolith has started to split: `main.py` initializes the FastAPI app and includes public runtime and Brand Brain workspace routers, but still owns generation, approval, and legacy routes.
 - Root-level `apps/` and `packages/` overlap with `aria/apps/` and `aria/packages/`; deployment references currently select different trees for different workflows.
 - Demo/mock behavior is partially explicit, but hardcoded `brand-1`, `ARIA Labs`, preview auth, and synthetic publishing IDs remain in product-adjacent code.
 - Approval aggregate queue behavior had verified contract bugs; this branch fixes cross-type status filtering and global pagination semantics.
@@ -79,7 +79,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 | --- | --- | --- | --- | --- |
 | Health | `GET /health` | none | no | Keep |
 | Public runtime | `/v1/posts/*`, `/v1/companies/{company_id}/posts`, `/v1/schedules/*` | not centrally enforced | in-memory MVP store | Extracted to `api/routers/public_runtime.py`; still needs DB persistence and auth |
-| Workspace/Brand Brain | `GET /internal/ai/workspace-context`, `GET/POST/PUT /internal/ai/brand-profile`, `POST /internal/ai/brand-profile/validate` | not centrally enforced | optional repository | Keep; add auth/tenant boundary |
+| Workspace/Brand Brain | `GET /internal/ai/workspace-context`, `GET/POST/PUT /internal/ai/brand-profile`, `POST /internal/ai/brand-profile/validate` | not centrally enforced | optional repository | Extracted to `api/routers/workspace.py`; add auth/tenant boundary |
 | Generation | `POST /internal/ai/generate-content-package`, brand strategy, competitors, trends, hashtags, visual concept, calendar, community, reports, content quality | not centrally enforced | optional repository | Keep as canonical AI orchestration surface |
 | Approval actions | `POST /internal/ai/approval/decision`, submit, approve, reject, request-changes, archive | reviewer metadata accepted in payload | repository through service | Keep; add authenticated reviewer source and status preconditions |
 | Approval detail/audit | `GET /internal/ai/approval/detail/*`, `GET /internal/ai/approval/audit/*` | not centrally enforced | required for detail | Keep; add tenant scoping |
@@ -156,6 +156,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 - Added backend regression tests for approval aggregate status and pagination.
 - Isolated legacy caption/provider behavior behind demo/deprecation headers and regression tests.
 - Extracted public runtime routes and shared FastAPI dependencies out of `main.py` without changing contracts.
+- Extracted Brand Brain workspace routes out of `main.py` with route and identity-guard regression coverage.
 
 ## Remaining Phase Decisions
 

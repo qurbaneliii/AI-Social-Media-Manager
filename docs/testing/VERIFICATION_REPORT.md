@@ -99,6 +99,28 @@ python -m pytest aria/apps/llm-orchestration/tests -q -rA
 
 Result: `58 passed, 2 skipped`.
 
+Brand Brain workspace router extraction checks:
+
+```powershell
+python -m ruff check aria/apps/llm-orchestration/app/main.py aria/apps/llm-orchestration/app/api/dependencies.py aria/apps/llm-orchestration/app/api/routers/workspace.py
+$env:PYTHONPATH='aria/apps/llm-orchestration/app'
+$env:AI_MOCK_MODE='true'
+$env:OPENAI_API_KEY='replace-me'
+python -m pytest aria/apps/llm-orchestration/tests/test_phase_8_product_workspace.py -q
+```
+
+Result: lint passed and `6 passed` before the full-suite run.
+
+Full backend result after Brand Brain workspace router extraction: `58 passed, 2 skipped`.
+
+Render-style workspace smoke on port `8012`:
+
+| Request | Result |
+| --- | --- |
+| `GET /health` | `200`, returned `status=ok` |
+| `GET /internal/ai/workspace-context` | `200`, returned `product_name=ARIA` and `default_workflow_mode=approval_based` |
+| `GET /internal/ai/brand-profile/brand-1` without a database pool | `503`, preserving the explicit unconfigured-persistence contract |
+
 Exact Render-entrypoint local smoke:
 
 ```powershell
@@ -143,6 +165,7 @@ Exact Render-entrypoint smoke after public runtime router extraction:
 - Added public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` MVP runtime routes to the Render-deployed FastAPI entrypoint.
 - Added route-contract tests for the exact Render entrypoint.
 - Extracted public runtime routes and shared FastAPI dependencies into `api/routers/public_runtime.py` and `api/dependencies.py`.
+- Extracted Brand Brain workspace context and profile routes into `api/routers/workspace.py`.
 
 ## Not Verified
 

@@ -51,13 +51,6 @@ from ai.approval.service import ApprovalService
 from ai.memory import BrandProfileNotFoundError
 from ai.persistence import AIPersistenceRepository
 from ai.schemas.analytics import ReportingInsightReport, ReportingInsightRequest
-from ai.schemas.brand import (
-    BrandProfile,
-    BrandProfileResponse,
-    BrandProfileValidationResult,
-    ProductContext,
-    validate_brand_profile_completeness,
-)
 from ai.schemas.calendar import CalendarPlanningRequest, ContentCalendarPlan
 from ai.schemas.community import CommunityManagementRequest, CommunityMessageAnalysis
 from ai.schemas.competitor import CompetitorAnalysisRequest, CompetitorInsightReport
@@ -69,6 +62,7 @@ from ai.schemas.trend import TrendInsightReport, TrendResearchRequest
 from ai.schemas.visual import VisualConceptPackage, VisualConceptRequest
 from api.dependencies import get_ai_orchestrator, get_approval_service, get_persistence_repository
 from api.routers.public_runtime import PUBLIC_POST_STORE, PUBLIC_SCHEDULE_STORE, router as public_runtime_router
+from api.routers.workspace import router as workspace_router
 
 __all__ = ["app", "PUBLIC_POST_STORE", "PUBLIC_SCHEDULE_STORE"]
 
@@ -130,15 +124,6 @@ class ApprovalActionRequest(BaseModel):
 
 class DraftListResponse(ApprovalQueueResponse):
     pass
-
-
-class BrandProfileUpsertRequest(BaseModel):
-    profile: BrandProfile
-
-
-class BrandProfileValidationRequest(BaseModel):
-    profile: BrandProfile
-    using_default_context: bool = False
 
 
 class ContentRefinementRequest(BaseModel):
@@ -232,6 +217,7 @@ app.add_middleware(
 )
 FastAPIInstrumentor.instrument_app(app)
 app.include_router(public_runtime_router)
+app.include_router(workspace_router)
 
 
 @app.exception_handler(BrandProfileNotFoundError)
@@ -263,59 +249,6 @@ async def invalid_approval_transition_handler(request: Request, exc: InvalidAppr
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
-
-
-@app.get("/internal/ai/workspace-context", response_model=ProductContext)
-def ai_get_workspace_context() -> ProductContext:
-    return ProductContext()
-
-
-def _brand_profile_response(profile: BrandProfile, *, persisted: bool = True) -> BrandProfileResponse:
-    return BrandProfileResponse(
-        profile=profile,
-        validation=validate_brand_profile_completeness(profile),
-        persisted=persisted,
-    )
-
-
-@app.get("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
-async def ai_get_brand_profile(
-    brand_id: str,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    profile = await repository.load_brand_profile(brand_id)
-    if profile is None:
-        raise BrandProfileNotFoundError(brand_id)
-    return _brand_profile_response(profile)
-
-
-@app.post("/internal/ai/brand-profile", response_model=BrandProfileResponse)
-async def ai_upsert_brand_profile(
-    payload: BrandProfileUpsertRequest,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    await repository.save_brand_profile(payload.profile)
-    return _brand_profile_response(payload.profile)
-
-
-@app.put("/internal/ai/brand-profile/{brand_id}", response_model=BrandProfileResponse)
-async def ai_update_brand_profile(
-    brand_id: str,
-    payload: BrandProfileUpsertRequest,
-    repository: AIPersistenceRepository = Depends(get_persistence_repository),
-) -> BrandProfileResponse:
-    if payload.profile.brand_id != brand_id:
-        raise HTTPException(status_code=400, detail="brand_id path parameter must match profile.brand_id.")
-    await repository.save_brand_profile(payload.profile)
-    return _brand_profile_response(payload.profile)
-
-
-@app.post("/internal/ai/brand-profile/validate", response_model=BrandProfileValidationResult)
-async def ai_validate_brand_profile(payload: BrandProfileValidationRequest) -> BrandProfileValidationResult:
-    return validate_brand_profile_completeness(
-        payload.profile,
-        using_default_context=payload.using_default_context,
-    )
 
 
 async def _apply_approval_action(

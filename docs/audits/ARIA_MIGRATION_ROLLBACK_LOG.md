@@ -16,6 +16,7 @@ Branch: `codex/aria-full-architecture-ui-ux-remediation`
 | 1 | Render env cleanup | Removed fake `OPENAI_API_KEY=replace-me` value and set Render branch to `main` | Restore previous render.yaml values only for an explicitly documented preview environment | `npm run build`; docs verification |
 | 2 | Approval aggregate queue repair | Aggregate queue now skips inapplicable object types for cross-type status filters and paginates after global sort | Revert `main.py` approval queue helper changes and regression tests | `pytest aria/apps/llm-orchestration/tests/test_phase_5_approval_queue.py -q` |
 | 7 | Public runtime router extraction | Moved public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` routes to `api/routers/public_runtime.py`; moved shared runtime dependencies to `api/dependencies.py` | Revert router extraction commit to restore inline `main.py` route definitions | `ruff`; public runtime contract tests; full llm-orchestration tests; Render-style local smoke |
+| 7 | Brand Brain workspace router extraction | Moved workspace context and Brand Profile GET/POST/PUT/validation routes to `api/routers/workspace.py` while preserving shared dependency overrides and error handling | Revert the workspace router extraction commit to restore inline `main.py` route definitions | `ruff`; Phase 8 product workspace tests; full llm-orchestration tests; Render-style local smoke |
 
 ## Current Rollback Boundaries
 
