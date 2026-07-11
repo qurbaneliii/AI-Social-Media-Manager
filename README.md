@@ -130,7 +130,7 @@ Important variables include:
 | `NEXT_PUBLIC_API_BASE_URL` | Canonical browser-visible public API base URL for the Render/FastAPI backend |
 | `TEMPORAL_ADDRESS` | Temporal service address for workflow-oriented components |
 
-`NEXT_PUBLIC_AI_ORCHESTRATION_URL` and `NEXT_PUBLIC_API_URL` are compatibility aliases only. New frontend deployments should set `NEXT_PUBLIC_API_BASE_URL`.
+All active frontend API clients use `NEXT_PUBLIC_API_BASE_URL`. Legacy public API aliases are no longer read by the canonical runtime.
 
 Do not commit real secrets. Keep real values in local `.env` files or deployment secret stores.
 

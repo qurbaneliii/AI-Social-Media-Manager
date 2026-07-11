@@ -74,7 +74,7 @@ export default function CompanyProfilePage() {
       setCompanyId(data.company_id);
       setClientCompanyId(data.company_id);
       toast.success("Company profile saved");
-      navigateTo("/onboarding/brand-assets");
+      navigateTo("/onboarding/vocabulary");
     },
     onError: (error) => {
       toast.error((error as Error).message || "Failed to save company profile");
@@ -92,7 +92,7 @@ export default function CompanyProfilePage() {
       setCompanyId(companyId);
       setClientCompanyId(companyId);
       toast.success("Profile saved (preview mode)");
-      navigateTo("/onboarding/brand-assets");
+      navigateTo("/onboarding/vocabulary");
       return;
     }
 

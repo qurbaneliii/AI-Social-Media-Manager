@@ -67,7 +67,7 @@ Current remediation commit at audit start: `cf1bdf0`
 | `aria-frontend/lib/api/ai-workspace.ts` | `/internal/ai/*` | API key/session headers not fully enforced | default context uses `brand-1` and `ARIA Labs` | Keep as canonical AI workspace client; remove silent demo defaults |
 | `aria-frontend/lib/api/approval.ts` | `/internal/ai/approval/*` | same backend-base resolver | no provider mock, but backend may be unconfigured | Keep; now benefits from aggregate queue fix |
 | `aria-frontend/context/AuthContext.tsx` | `/api/auth/login`, `/api/auth/register` | local API routes and storage | preview/auth fallback exists | Keep temporarily; align with Supabase Auth before production |
-| `aria-frontend/services/aiService.ts` | older `/ai/*` backend paths | none proven | legacy error behavior | Deprecate after caller search |
+| `aria-frontend/services/aiService.ts` | canonical `/internal/ai/*` adapter calls | token forwarded by shared client | preview responses are explicit | Keep temporarily for Create view-model adaptation; remove after client decomposition |
 | `aria-frontend/src/lib/api.ts` | `NEXT_PUBLIC_API_URL` generic client | unknown | unknown | Duplicate tree; remove only after import search and route verification |
 | `aria-frontend/app/api/ai/*` and `/api/generate` | retired frontend provider routes | none | no generation | Retired with `410` tombstones |
 
@@ -157,6 +157,7 @@ Canonical backend source: `aria/apps/llm-orchestration/app/main.py`.
 - Isolated legacy caption/provider behavior behind demo/deprecation headers and regression tests.
 - Extracted public runtime routes and shared FastAPI dependencies out of `main.py` without changing contracts.
 - Extracted Brand Brain workspace routes out of `main.py` with route and identity-guard regression coverage.
+- Consolidated active browser clients on one `NEXT_PUBLIC_API_BASE_URL` resolver and retired media/import controls whose legacy handlers are not mounted by the selected Render backend.
 
 ## Remaining Phase Decisions
 

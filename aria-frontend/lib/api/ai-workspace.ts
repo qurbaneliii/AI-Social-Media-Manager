@@ -1,3 +1,5 @@
+import { resolvePublicApiBase } from "@/lib/api/base";
+
 export interface ProductContext {
   product_name: string;
   product_role: string;
@@ -307,12 +309,6 @@ export class AIWorkspaceApiError extends Error {
   }
 }
 
-const API_BASE_ENV_KEYS = [
-  "NEXT_PUBLIC_API_BASE_URL",
-  "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
-  "NEXT_PUBLIC_API_URL"
-] as const;
-
 export const defaultBrandProfile: BrandProfile = {
   brand_id: "brand-1",
   brand_name: "ARIA Labs",
@@ -331,31 +327,6 @@ export const defaultBrandProfile: BrandProfile = {
   business_goals: ["increase content quality"],
   language_preferences: ["en"]
 };
-
-function resolveApiBase(): string {
-  for (const key of API_BASE_ENV_KEYS) {
-    const value = process.env[key];
-    if (value) {
-      return value.replace(/\/$/, "");
-    }
-  }
-
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `${protocol}//${hostname}:8000`;
-    }
-  }
-
-  throw new AIWorkspaceApiError(
-    "NEXT_PUBLIC_API_BASE_URL is not configured.",
-    0,
-    {
-      required_env: "NEXT_PUBLIC_API_BASE_URL",
-      compatibility_fallback_env: ["NEXT_PUBLIC_AI_ORCHESTRATION_URL", "NEXT_PUBLIC_API_URL"]
-    }
-  );
-}
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") {
@@ -399,7 +370,7 @@ async function requestAI<TResponse>(path: string, init: RequestInit = {}): Promi
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${resolveApiBase()}${path}`, { ...init, headers });
+  const response = await fetch(`${resolvePublicApiBase()}${path}`, { ...init, headers });
   if (!response.ok) {
     throw await parseError(response);
   }

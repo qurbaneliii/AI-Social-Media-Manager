@@ -166,6 +166,17 @@ Exact Render-entrypoint smoke after public runtime router extraction:
 - Added route-contract tests for the exact Render entrypoint.
 - Extracted public runtime routes and shared FastAPI dependencies into `api/routers/public_runtime.py` and `api/dependencies.py`.
 - Extracted Brand Brain workspace context and profile routes into `api/routers/workspace.py`.
+- Consolidated active frontend API-base resolution in `lib/api/base.ts`; removed legacy public API environment aliases from runtime clients.
+- Removed media presign/confirm and archive-import calls that targeted unmounted backend routes, and redirected the retired Brand Assets onboarding step to Vocabulary.
+- Strengthened the exact Render route contract test to assert HTTP methods as well as paths.
+
+Canonical API-base and unsupported-route cleanup verification:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed, 47 routes generated.
+- `pytest aria/apps/llm-orchestration/tests/test_public_runtime_contract.py -q`: `3 passed`.
+- Active runtime source scan found no `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_AI_ORCHESTRATION_URL`, `/v1/media`, or `/v1/onboarding/import` references.
 
 ## Not Verified
 

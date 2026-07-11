@@ -33,12 +33,13 @@ The browser should not need to know whether AI orchestration is internal, in-pro
 
 The `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` handlers are owned by `aria/apps/llm-orchestration/app/api/routers/public_runtime.py`. `main.py` includes this router and re-exports the current in-memory stores only for regression compatibility while persistence work remains incomplete.
 
-## Compatibility
+## Configuration Contract
 
-`NEXT_PUBLIC_AI_ORCHESTRATION_URL` and `NEXT_PUBLIC_API_URL` are compatibility fallbacks only. New deployments should set `NEXT_PUBLIC_API_BASE_URL`.
+All active browser clients resolve their backend through `aria-frontend/lib/api/base.ts` and require `NEXT_PUBLIC_API_BASE_URL`. The former `NEXT_PUBLIC_AI_ORCHESTRATION_URL` and `NEXT_PUBLIC_API_URL` aliases have been removed from active runtime code and new deployment examples.
 
 ## Current Limits
 
 - The public `/v1/posts/*` and `/v1/schedules/*` routes in `aria/apps/llm-orchestration` are MVP runtime contracts, not full production persistence replacements for the older unmounted `aria/api/*` modules.
 - External platform scheduling remains not implemented. Schedule records include internal readiness only and must not be presented as confirmed external scheduling.
+- Media upload and post-archive import remain owned by an unmounted legacy Core API with separate storage dependencies. Their controls are retired from the canonical Create and onboarding flows until authenticated storage ownership is implemented on the selected public backend.
 - Auth and tenant enforcement are still required before PR #8 can be marked ready.

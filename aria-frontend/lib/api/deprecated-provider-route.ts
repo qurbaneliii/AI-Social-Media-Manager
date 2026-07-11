@@ -8,7 +8,7 @@ export function retiredFrontendProviderRoute(feature: string): NextResponse {
         "This frontend provider endpoint is retired. Normal ARIA product flows must call the llm-orchestration backend instead of OpenAI or Anthropic from Next.js route handlers.",
       feature,
       canonical_api: {
-        base_env: "NEXT_PUBLIC_AI_ORCHESTRATION_URL",
+        base_env: "NEXT_PUBLIC_API_BASE_URL",
         content_generation: "/internal/ai/generate-content-package",
         post_generation: "/v1/posts/generate"
       }
@@ -21,4 +21,3 @@ export function retiredFrontendProviderRoute(feature: string): NextResponse {
     }
   );
 }
-

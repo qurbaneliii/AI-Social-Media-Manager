@@ -10,7 +10,7 @@ Service: `aria-ai-orchestration-mvp`
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Yes | From Supabase Dashboard Connect | Backend-only. Never expose in Vercel. |
 | `AI_MOCK_MODE` | Yes | `true` | Keeps demo free of paid OpenAI API calls. |
-| `OPENAI_API_KEY` | Yes | `replace-me` | Mock mode ignores this placeholder. |
+| `OPENAI_API_KEY` | No in mock mode | Leave unset | Required only when `AI_MOCK_MODE=false`; keep it backend-only. |
 | `OPENAI_MODEL` | Yes | `gpt-4o-mini` | Used if real mode is enabled later. |
 | `AI_TEMPERATURE` | Yes | `0.4` | LLM setting. |
 | `AI_MAX_RETRIES` | Yes | `2` | LLM retry setting. |
@@ -25,9 +25,7 @@ Project root: `aria-frontend`
 
 | Variable | Required | Value for free MVP | Notes |
 | --- | --- | --- | --- |
-| `NEXT_PUBLIC_AI_ORCHESTRATION_URL` | Yes | Render backend URL | Public browser URL for FastAPI orchestration service. |
-| `NEXT_PUBLIC_API_BASE_URL` | Optional | Render backend URL | Compatibility fallback for older client helpers. |
-| `NEXT_PUBLIC_API_URL` | Optional | Render backend URL | Compatibility fallback for older client helpers. |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes | Render backend URL | Canonical public backend URL used by all active browser clients. |
 | `NEXT_PUBLIC_PREVIEW_MODE` | Optional | `true` | Enables preview/demo framing in UI. |
 | `NEXT_PUBLIC_AI_REQUEST_TIMEOUT_MS` | Optional | `45000` | Browser-side AI request timeout. |
 | `NEXT_PUBLIC_AI_REQUEST_RETRIES` | Optional | `2` | Browser-side retry count. |

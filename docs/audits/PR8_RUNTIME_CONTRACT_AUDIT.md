@@ -16,14 +16,7 @@ Before this pass, the canonical `/posts/new` flow could call three backend contr
 
 ## Public API Decision
 
-The browser-visible API base is `NEXT_PUBLIC_API_BASE_URL`.
-
-Compatibility fallbacks remain for existing environments:
-
-- `NEXT_PUBLIC_AI_ORCHESTRATION_URL`
-- `NEXT_PUBLIC_API_URL`
-
-New deployments should not set separate public AI and core API URLs.
+The browser-visible API base is `NEXT_PUBLIC_API_BASE_URL`. `lib/api.ts`, `lib/api/ai-workspace.ts`, and `lib/api/approval.ts` now share `lib/api/base.ts`; active runtime code no longer reads `NEXT_PUBLIC_AI_ORCHESTRATION_URL` or `NEXT_PUBLIC_API_URL`.
 
 ## Runtime Route Mapping
 
@@ -43,11 +36,13 @@ New deployments should not set separate public AI and core API URLs.
 | Retrieve schedule | `getSchedule` in `lib/api.ts` | `/v1/schedules/{schedule_id}` | `/v1/schedules/{schedule_id}` | `public_get_schedule` |
 | Approve schedule | `approveSchedule` in `lib/api.ts` | `/v1/schedules/{schedule_id}/approve` | `/v1/schedules/{schedule_id}/approve` | `public_approve_schedule` |
 
+Media presign, upload confirmation, and archive import were traced to `aria/api/media.py` and `aria/api/onboarding.py`, which are not mounted by the Render entrypoint and require separate database/storage services. Their controls and client calls were removed from the canonical Create/onboarding runtime rather than left as guaranteed 404s or replaced with fake presign responses. `/onboarding/brand-assets` now redirects to vocabulary until authenticated media storage is implemented on the canonical backend.
+
 ## Verified Contract Tests
 
 `aria/apps/llm-orchestration/tests/test_public_runtime_contract.py` verifies:
 
-- the exact Render FastAPI entrypoint exposes every frontend-required Create-flow route listed above;
+- the exact Render FastAPI entrypoint exposes each frontend-required Create-flow HTTP method and route listed above;
 - a non-preview public post generation, retrieval, draft save, list, schedule create, schedule detail, and schedule approval flow works through the deployed app object;
 - legacy `/ai/*` routes are not part of the deployed backend contract.
 
@@ -66,3 +61,4 @@ New deployments should not set separate public AI and core API URLs.
 - Actor identity is still not derived from trusted backend authentication context.
 - Live PostgreSQL integration for these new public routes has not been completed in this pass.
 - Browser Playwright non-preview happy-path testing remains required.
+- Public onboarding company-profile, vocabulary, quality-check, and status ownership still needs consolidation into the selected backend.

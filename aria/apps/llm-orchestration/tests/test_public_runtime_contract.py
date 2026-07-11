@@ -6,23 +6,27 @@ from fastapi.testclient import TestClient
 def test_render_entrypoint_exposes_frontend_required_public_routes() -> None:
     from main import app
 
-    route_paths = {getattr(route, "path", "") for route in app.routes}
+    route_contract = {
+        (method, getattr(route, "path", ""))
+        for route in app.routes
+        for method in getattr(route, "methods", set())
+    }
     expected = {
-        "/internal/ai/generate-content-package",
-        "/internal/ai/content/refine",
-        "/internal/ai/content-quality/review",
-        "/internal/ai/hashtags/recommend",
-        "/internal/ai/trends/research",
-        "/v1/posts/generate",
-        "/v1/posts/{post_id}",
-        "/v1/posts/drafts",
-        "/v1/companies/{company_id}/posts",
-        "/v1/schedules",
-        "/v1/schedules/{schedule_id}",
-        "/v1/schedules/{schedule_id}/approve",
+        ("POST", "/internal/ai/generate-content-package"),
+        ("POST", "/internal/ai/content/refine"),
+        ("POST", "/internal/ai/content-quality/review"),
+        ("POST", "/internal/ai/hashtags/recommend"),
+        ("POST", "/internal/ai/trends/research"),
+        ("POST", "/v1/posts/generate"),
+        ("GET", "/v1/posts/{post_id}"),
+        ("POST", "/v1/posts/drafts"),
+        ("GET", "/v1/companies/{company_id}/posts"),
+        ("POST", "/v1/schedules"),
+        ("GET", "/v1/schedules/{schedule_id}"),
+        ("POST", "/v1/schedules/{schedule_id}/approve"),
     }
 
-    assert expected.issubset(route_paths)
+    assert expected.issubset(route_contract)
 
 
 def test_public_post_and_schedule_contract_flow_works_without_preview_routes() -> None:

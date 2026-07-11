@@ -22,7 +22,7 @@ Detailed phase rollback entries are tracked in `docs/audits/ARIA_MIGRATION_ROLLB
 | Legacy orchestration route | `/run` | canonical `/internal/ai/*` and `/v1/*` flows | Explicit deprecated header |
 | Legacy provider adapter | `LiteLLMAdapter` in `main.py` | `ai/llm/client.py` via `AIOrchestrator` | Refuses configured provider keys |
 | Legacy AI assist URLs | `/ai/generate-content`, `/ai/generate-batch`, `/ai/improve-content`, `/ai/analyze-content`, `/ai/suggest-hashtags`, `/ai/suggest-topics` | `/internal/ai/*` on the public FastAPI backend | Frontend adapter migrated |
-| Split public API env vars | `NEXT_PUBLIC_AI_ORCHESTRATION_URL`, `NEXT_PUBLIC_API_URL` | `NEXT_PUBLIC_API_BASE_URL` | Compatibility fallback only |
+| Split public API env vars | `NEXT_PUBLIC_AI_ORCHESTRATION_URL`, `NEXT_PUBLIC_API_URL` | `NEXT_PUBLIC_API_BASE_URL` | Removed from active runtime clients |
 
 ## Removal Rules
 

@@ -186,17 +186,6 @@ export interface ScheduleResponse {
   status: "queued";
 }
 
-export interface PresignResponse {
-  upload_url: string;
-  asset_id: string;
-}
-
-export interface ImportResponse {
-  staged_count: number;
-  skipped_count: number;
-  import_id?: string;
-}
-
 export interface QualityCheckResponse {
   task_id: string;
 }

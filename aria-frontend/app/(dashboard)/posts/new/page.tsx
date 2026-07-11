@@ -13,12 +13,10 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
-import { FileDropzone } from "@/components/ui/FileDropzone";
 import { TagInput } from "@/components/ui/TagInput";
 import { PLATFORM_CHAR_LIMITS } from "@/config/constants";
 import { useAuth } from "@/context/AuthContext";
 import { useGeneratePost } from "@/hooks/useGeneratePost";
-import { usePresignUpload } from "@/hooks/usePresignUpload";
 import { getClientSession } from "@/lib/client-session";
 import { IS_STATIC } from "@/lib/isStatic";
 import { mockCompanyProfile } from "@/lib/mockData";
@@ -111,7 +109,6 @@ export default function NewPostPage() {
   const { user } = useAuth();
   const setDraftForm = usePostStore((s) => s.setDraftForm);
   const generateMutation = useGeneratePost();
-  const upload = usePresignUpload();
 
   const [didPrefillFromProfile, setDidPrefillFromProfile] = useState(false);
   const [didHydrateDraft, setDidHydrateDraft] = useState(false);
@@ -758,29 +755,6 @@ export default function NewPostPage() {
               </label>
             ) : null}
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Attach media (optional)</p>
-              <FileDropzone
-                label="Upload media"
-                onFiles={async (files) => {
-                  const file = files[0];
-                  if (!file) return;
-                  const assetId = await upload.upload({ company_id: companyId, file });
-                  form.setValue("attached_media_id", assetId, { shouldValidate: true });
-                }}
-                disabled={upload.isUploading}
-              />
-              {upload.isUploading ? (
-                <div className="space-y-1">
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-2 bg-emerald-600 transition-all" style={{ width: `${upload.progress}%` }} />
-                  </div>
-                  <p className="text-xs text-slate-600">Uploading media... {upload.progress}%</p>
-                </div>
-              ) : null}
-              {form.watch("attached_media_id") ? <p className="text-xs text-slate-600">Asset: {form.watch("attached_media_id")}</p> : null}
-              {upload.error ? <p className="text-xs text-red-600">Upload failed. Please retry.</p> : null}
-            </div>
           </section>
         ) : null}
 
