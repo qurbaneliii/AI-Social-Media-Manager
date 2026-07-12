@@ -1,0 +1,1 @@
+"""Canonical public API contracts."""

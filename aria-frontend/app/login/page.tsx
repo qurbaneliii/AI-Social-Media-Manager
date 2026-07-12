@@ -63,12 +63,16 @@ export default function LoginPage() {
       let data: {
         token?: string;
         user?: { id?: string; email?: string; name?: string | null; role?: UserRole };
+        workspace_id?: string;
+        brand_id?: string | null;
         error?: string;
       } = {};
       try {
         data = (await response.json()) as {
           token?: string;
           user?: { id?: string; email?: string; name?: string | null; role?: UserRole };
+          workspace_id?: string;
+          brand_id?: string | null;
           error?: string;
         };
       } catch {
@@ -80,7 +84,7 @@ export default function LoginPage() {
         return;
       }
 
-      if (!data.token || !data.user?.role) {
+      if (!data.token || !data.user?.role || !data.workspace_id) {
         setError("Invalid server response.");
         return;
       }
@@ -91,6 +95,10 @@ export default function LoginPage() {
         localStorage.setItem("aria_token", data.token);
         sessionStorage.setItem("aria_token", data.token);
         localStorage.setItem("aria_role", data.user.role);
+        localStorage.setItem("aria_workspace_id", data.workspace_id);
+        if (data.brand_id) {
+          localStorage.setItem("aria_company_id", data.brand_id);
+        }
       }
 
       const role = data.user.role;

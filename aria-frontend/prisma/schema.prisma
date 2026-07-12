@@ -22,3 +22,40 @@ model User {
   role      UserRole
   createdAt DateTime @default(now())
 }
+
+model AIWorkspace {
+  workspaceId String   @id @map("workspace_id")
+  name        String
+  timezone    String   @default("UTC") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  memberships AIWorkspaceMembership[]
+  brands      AIBrand[]
+
+  @@map("ai_workspaces")
+}
+
+model AIWorkspaceMembership {
+  workspaceId String      @map("workspace_id")
+  userId      String      @map("user_id")
+  role        String      @db.VarChar(32)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  workspace   AIWorkspace @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId, workspaceId], map: "idx_ai_memberships_user_workspace")
+  @@map("ai_workspace_memberships")
+}
+
+model AIBrand {
+  brandId     String      @id @map("brand_id")
+  workspaceId String      @map("workspace_id")
+  name        String
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  workspace   AIWorkspace @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+
+  @@unique([workspaceId, brandId])
+  @@index([workspaceId], map: "idx_ai_brands_workspace")
+  @@map("ai_brands")
+}

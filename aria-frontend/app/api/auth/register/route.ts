@@ -26,24 +26,36 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(payload.password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        name: payload.name,
-        email: payload.email,
-        password: hashedPassword,
-        role: payload.role
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true
-      }
+    const user = await prisma.$transaction(async (transaction) => {
+      const createdUser = await transaction.user.create({
+        data: {
+          name: payload.name,
+          email: payload.email,
+          password: hashedPassword,
+          role: payload.role
+        }
+      });
+      const workspaceId = `workspace_${createdUser.id}`;
+      const brandId = `brand_${createdUser.id}`;
+      await transaction.aIWorkspace.create({
+        data: {
+          workspaceId,
+          name: `${payload.name}'s workspace`,
+          memberships: {
+            create: { userId: createdUser.id, role: payload.role }
+          },
+          brands: {
+            create: { brandId, name: payload.name }
+          }
+        }
+      });
+      return createdUser;
     });
 
     return NextResponse.json(
       {
         message: "User created",
-        user
+        user: { id: user.id, email: user.email, role: user.role }
       },
       { status: 201 }
     );

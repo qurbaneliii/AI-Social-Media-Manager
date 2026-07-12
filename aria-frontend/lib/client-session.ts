@@ -7,17 +7,19 @@ export interface ClientSession {
   token: string | null;
   role: UserRole | null;
   companyId: string | null;
+  workspaceId: string | null;
 }
 
 const KEYS = {
   token: "aria_token",
   role: "aria_role",
-  companyId: "aria_company_id"
+  companyId: "aria_company_id",
+  workspaceId: "aria_workspace_id"
 } as const;
 
 export const getClientSession = (): ClientSession => {
   if (typeof window === "undefined") {
-    return { token: null, role: null, companyId: null };
+    return { token: null, role: null, companyId: null, workspaceId: null };
   }
   const roleRaw = localStorage.getItem(KEYS.role);
   const role =
@@ -31,7 +33,8 @@ export const getClientSession = (): ClientSession => {
   return {
     token: sessionStorage.getItem(KEYS.token) ?? localStorage.getItem(KEYS.token),
     role,
-    companyId: localStorage.getItem(KEYS.companyId)
+    companyId: localStorage.getItem(KEYS.companyId),
+    workspaceId: localStorage.getItem(KEYS.workspaceId)
   };
 };
 
@@ -59,4 +62,5 @@ export const clearClientSession = () => {
   localStorage.removeItem(KEYS.token);
   localStorage.removeItem(KEYS.role);
   localStorage.removeItem(KEYS.companyId);
+  localStorage.removeItem(KEYS.workspaceId);
 };

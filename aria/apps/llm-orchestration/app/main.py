@@ -5,6 +5,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Literal
+from uuid import uuid4
 
 import httpx
 import redis
@@ -61,10 +62,13 @@ from ai.schemas.strategy import BrandStrategyPlan, BrandStrategyRequest
 from ai.schemas.trend import TrendInsightReport, TrendResearchRequest
 from ai.schemas.visual import VisualConceptPackage, VisualConceptRequest
 from api.dependencies import get_ai_orchestrator, get_approval_service, get_persistence_repository
-from api.routers.public_runtime import PUBLIC_POST_STORE, PUBLIC_SCHEDULE_STORE, router as public_runtime_router
+from api.routers.product import router as product_router
+from api.routers.public_runtime import router as public_runtime_router
 from api.routers.workspace import router as workspace_router
+from core.config import get_settings
+from core.errors import register_error_handlers
 
-__all__ = ["app", "PUBLIC_POST_STORE", "PUBLIC_SCHEDULE_STORE"]
+__all__ = ["app"]
 
 
 class Message(BaseModel):
@@ -193,12 +197,18 @@ def get_deps() -> Dependencies:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    database_url = os.getenv("DATABASE_URL")
+    settings = get_settings()
+    app.state.settings = settings
+    database_url = settings.DATABASE_URL
     app.state.db_pool = None
     if database_url:
         import asyncpg
 
-        app.state.db_pool = await asyncpg.create_pool(database_url, min_size=1, max_size=5)
+        app.state.db_pool = await asyncpg.create_pool(
+            database_url,
+            min_size=settings.DATABASE_POOL_MIN_SIZE,
+            max_size=settings.DATABASE_POOL_MAX_SIZE,
+        )
     try:
         yield
     finally:
@@ -208,6 +218,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ARIA LLM Orchestration Service", lifespan=lifespan)
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_cors_origins(),
@@ -217,7 +228,16 @@ app.add_middleware(
 )
 FastAPIInstrumentor.instrument_app(app)
 app.include_router(public_runtime_router)
+app.include_router(product_router)
 app.include_router(workspace_router)
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request.state.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request.state.request_id
+    return response
 
 
 @app.exception_handler(BrandProfileNotFoundError)
@@ -249,6 +269,39 @@ async def invalid_approval_transition_handler(request: Request, exc: InvalidAppr
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "llm-orchestration"}
+
+
+@app.get("/health/live")
+def health_live() -> dict[str, str]:
+    return {"status": "ok", "service": "llm-orchestration"}
+
+
+@app.get("/health/ready")
+async def health_ready(request: Request, response: Response) -> dict[str, Any]:
+    pool = getattr(request.app.state, "db_pool", None)
+    if pool is None:
+        response.status_code = 503
+        return {"status": "not_ready", "database": "unavailable"}
+    try:
+        async with pool.acquire() as connection:
+            await connection.fetchval("SELECT true")
+    except Exception:
+        response.status_code = 503
+        return {"status": "not_ready", "database": "degraded"}
+    return {"status": "ready", "database": "available"}
+
+
+@app.get("/health/dependencies")
+async def health_dependencies(request: Request) -> dict[str, str]:
+    settings = getattr(request.app.state, "settings", get_settings())
+    return {
+        "database": "configured" if settings.DATABASE_URL else "unavailable",
+        "authentication": "configured" if settings.JWT_SECRET else "unavailable",
+        "ai": "demo" if settings.AI_MOCK_MODE else "configured",
+        "external_scheduling": "unavailable",
+        "publishing": "unavailable",
+        "external_analytics": "unavailable",
+    }
 
 
 async def _apply_approval_action(

@@ -196,7 +196,19 @@ const getTokenFromSession = (): string | null => {
   if (typeof window === "undefined") {
     return null;
   }
-  return sessionStorage.getItem("aria_token") ?? localStorage.getItem("aria_token");
+  return (
+    sessionStorage.getItem("aria_token") ??
+    sessionStorage.getItem("token") ??
+    localStorage.getItem("aria_token") ??
+    localStorage.getItem("token")
+  );
+};
+
+const getWorkspaceId = (): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return sessionStorage.getItem("aria_workspace_id") ?? localStorage.getItem("aria_workspace_id");
 };
 
 const isPreviewMode = (): boolean => {
@@ -211,25 +223,28 @@ const isPreviewMode = (): boolean => {
 
 const getJsonHeaders = (): HeadersInit => {
   const token = getTokenFromSession();
+  const workspaceId = getWorkspaceId();
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(workspaceId ? { "X-ARIA-Workspace-ID": workspaceId } : {})
   };
 };
 
 const parseError = async (response: Response): Promise<ApiError> => {
-  let payload: Partial<ApiErrorPayload> = {};
+  let payload: Partial<ApiErrorPayload> & { error?: Partial<ApiErrorPayload> & { request_id?: string } } = {};
   try {
     payload = (await response.json()) as Partial<ApiErrorPayload>;
   } catch {
     payload = {};
   }
+  const error: Partial<ApiErrorPayload> & { request_id?: string } = payload.error ?? payload;
   return new ApiError({
-    code: payload.code ?? `HTTP_${response.status}`,
-    message: payload.message ?? `Request failed with status ${response.status}`,
-    trace_id: payload.trace_id,
-    retryable: payload.retryable ?? response.status >= 500,
-    details: payload.details
+    code: error.code ?? `HTTP_${response.status}`,
+    message: error.message ?? `Request failed with status ${response.status}`,
+    trace_id: error.trace_id ?? error.request_id,
+    retryable: error.retryable ?? response.status >= 500,
+    details: error.details
   });
 };
 

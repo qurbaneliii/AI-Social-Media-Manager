@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .schemas import ApprovalAuditEvent, ApprovalDecision, ApprovalObjectType, ApprovalStatus
+from .schemas import ApprovalAuditEvent, ApprovalDecision, ApprovalObjectType
 
 
 class DraftListFilters(BaseModel):

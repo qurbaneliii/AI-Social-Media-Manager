@@ -107,10 +107,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error(await parseErrorMessage(response));
     }
 
-    const payload = (await response.json()) as { user: AuthUser; token: string };
+    const payload = (await response.json()) as { user: AuthUser; token: string; workspace_id: string; brand_id: string | null };
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(payload.user));
       localStorage.setItem("token", payload.token);
+      localStorage.setItem("aria_token", payload.token);
+      localStorage.setItem("aria_workspace_id", payload.workspace_id);
+      if (payload.brand_id) {
+        localStorage.setItem("aria_company_id", payload.brand_id);
+      }
     }
     setUser(payload.user);
     return payload.user;
@@ -134,6 +139,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
+      localStorage.removeItem("aria_token");
+      localStorage.removeItem("aria_workspace_id");
+      localStorage.removeItem("aria_company_id");
       localStorage.removeItem("isPreview");
       window.location.href = `${getBasePath()}/login`;
     }

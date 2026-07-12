@@ -333,8 +333,10 @@ function getAuthToken(): string | null {
     return null;
   }
   return (
+    window.localStorage.getItem("aria_token") ??
     window.localStorage.getItem("auth_token") ??
     window.localStorage.getItem("token") ??
+    window.sessionStorage.getItem("aria_token") ??
     window.sessionStorage.getItem("auth_token") ??
     window.sessionStorage.getItem("token")
   );
@@ -368,6 +370,10 @@ async function requestAI<TResponse>(path: string, init: RequestInit = {}): Promi
   }
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+  const workspaceId = window.localStorage.getItem("aria_workspace_id");
+  if (workspaceId && !headers.has("X-ARIA-Workspace-ID")) {
+    headers.set("X-ARIA-Workspace-ID", workspaceId);
   }
 
   const response = await fetch(`${resolvePublicApiBase()}${path}`, { ...init, headers });
