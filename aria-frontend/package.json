@@ -11,6 +11,7 @@
     "export": "next build",
     "seed": "tsx scripts/seed.ts",
     "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "postbuild": "node -e \"const fs=require('fs');fs.mkdirSync('out',{recursive:true});fs.writeFileSync('out/.nojekyll','')\""
   },

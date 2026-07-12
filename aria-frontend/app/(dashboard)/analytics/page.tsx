@@ -16,6 +16,7 @@ function DataSourceBadge({ children }: { children: React.ReactNode }) {
 }
 
 export default function AnalyticsPage() {
+  const previewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
   const companyId = useCompanyStore((state) => state.companyId) ?? getClientSession().companyId;
   const auditQuery = useAuditLog(companyId, 0, 50);
   const postsQuery = useCompanyPosts(companyId, 0);
@@ -44,6 +45,7 @@ export default function AnalyticsPage() {
         <p className="label-xs mb-2">Decision support</p>
         <h1>Insights</h1>
         <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Understand generated content quality and workflow activity without confusing internal estimates with live platform analytics.</p>
+        {previewMode ? <div className="mt-3"><DataSourceBadge>Demo data</DataSourceBadge></div> : null}
       </header>
 
       <div className="rounded border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
@@ -51,10 +53,15 @@ export default function AnalyticsPage() {
       </div>
 
       <dl className="grid border-y border-[var(--border)] sm:grid-cols-3">
-        <div className="py-5 sm:pr-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><FileText aria-hidden="true" className="size-4" /> Generated packages</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : qualityData.length}</dd></div>
-        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:px-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><BarChart3 aria-hidden="true" className="size-4" /> Average quality</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageQuality}/100`}</dd></div>
-        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:pl-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><Brain aria-hidden="true" className="size-4" /> Audience confidence</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageConfidence}%`}</dd></div>
+        <div className="py-5 sm:pr-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><FileText aria-hidden="true" className="size-4" /> Generated packages</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : qualityData.length}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: internal generation records</p></div>
+        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:px-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><BarChart3 aria-hidden="true" className="size-4" /> Average quality</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageQuality}/100`}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: AI quality estimate</p></div>
+        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:pl-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><Brain aria-hidden="true" className="size-4" /> Audience confidence</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageConfidence}%`}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: generated audience model</p></div>
       </dl>
+
+      <section className="surface-card rounded p-5 sm:p-6" aria-labelledby="external-performance-heading">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="external-performance-heading">External performance</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Engagement, reach, impressions, clicks, and follower growth.</p></div><span className="rounded border border-slate-300 bg-[var(--bg-secondary)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]">Unavailable</span></div>
+        <p className="mt-4 text-sm text-[var(--text-secondary)]">Source: no verified social-platform analytics integration is configured. ARIA does not render zero-filled charts as performance data.</p>
+      </section>
 
       <section className="surface-card rounded p-5 sm:p-6" aria-labelledby="quality-heading">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
