@@ -1,149 +1,195 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
-import { BarChart3, Clock3, Eye, FileText, Send, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, Brain, CalendarClock, FileText, Plus, ShieldCheck } from "lucide-react";
 
-import { AIGeneratorPanel } from "@/components/dashboard/AIGeneratorPanel";
-import { BrandProfileCard } from "@/components/dashboard/BrandProfileCard";
-import { NotificationItem } from "@/components/dashboard/NotificationItem";
-import { PlatformPieChart } from "@/components/dashboard/PlatformPieChart";
-import { PostCard } from "@/components/dashboard/PostCard";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useDashboardFeed } from "@/hooks/useDashboardFeed";
 import { useDashboardStore } from "@/lib/store";
 
-const iconMap = {
-  FileText,
-  Clock3,
-  Send,
-  TrendingUp,
-  Eye,
-  BarChart3
-} as const;
+const previewModeEnabled = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true";
 
-const iconColorMap = {
-  FileText: "bg-teal-500/15 text-teal-700",
-  Clock3: "bg-sky-500/15 text-sky-700",
-  Send: "bg-violet-500/15 text-violet-700",
-  TrendingUp: "bg-emerald-500/15 text-emerald-700",
-  Eye: "bg-blue-500/15 text-blue-700",
-  BarChart3: "bg-amber-500/15 text-amber-700"
-} as const;
-
-const containerVariants: Variants = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.08
-    }
+const statusLabel = (status: string): string => {
+  if (status === "scheduled") {
+    return "Internal plan";
   }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+  if (status === "published") {
+    return "Imported published state";
+  }
+  return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
 export default function BrandDashboardPage() {
-  const { isLoading, statMetrics, weeklyPerformance, platformBreakdown, notifications, posts, brandProfile } = useDashboard();
-  const markNotificationRead = useDashboardStore((state) => state.markNotificationRead);
-  const dismissNotification = useDashboardStore((state) => state.dismissNotification);
+  const feed = useDashboardFeed();
+  const brandProfile = useDashboardStore((state) => state.brandProfile);
 
-  if (isLoading) {
+  const drafts = feed.posts.filter((post) => post.status === "draft");
+  const failed = feed.posts.filter((post) => post.status === "failed");
+  const planned = feed.posts.filter((post) => post.status === "scheduled");
+  const recent = feed.posts.slice(0, 4);
+
+  if (feed.isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-16" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <Skeleton key={idx} className="h-44" />
+      <div className="space-y-6" aria-busy="true" aria-label="Loading Overview">
+        <Skeleton className="h-24" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-28" />
           ))}
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-[460px] lg:col-span-2" />
-          <Skeleton className="h-[460px]" />
-        </div>
+        <Skeleton className="h-72" />
       </div>
     );
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      <motion.section variants={itemVariants} className="space-y-1">
-        <h1>Brand Dashboard</h1>
-        <p className="text-sm text-[var(--text-secondary)]">Central command center for AI-assisted publishing and growth analytics.</p>
-      </motion.section>
-
-      <motion.section variants={itemVariants} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {statMetrics.map((metric, index) => {
-          const Icon = iconMap[metric.icon];
-          return (
-            <StatCard
-              key={metric.id}
-              title={metric.title}
-              value={metric.value}
-              valuePrefix={metric.valuePrefix}
-              valueSuffix={metric.valueSuffix}
-              change={metric.change}
-              changeLabel={metric.changeLabel}
-              icon={Icon}
-              iconColor={iconColorMap[metric.icon]}
-              trend={metric.trend}
-              index={index}
-            />
-          );
-        })}
-      </motion.section>
-
-      <motion.section variants={itemVariants} className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <AIGeneratorPanel />
+    <div className="space-y-8">
+      <header className="flex flex-col gap-4 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="default">{brandProfile.companyName}</Badge>
+            {previewModeEnabled ? <Badge variant="warning">Demo data</Badge> : <Badge variant="info">Workspace data</Badge>}
+          </div>
+          <div>
+            <h1>Overview</h1>
+            <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
+              Prioritize brand readiness, content review, and internal planning from one workspace.
+            </p>
+          </div>
         </div>
+        <Button asChild>
+          <Link href="/posts/new">
+            <Plus className="h-4 w-4" />
+            Create content
+          </Link>
+        </Button>
+      </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {notifications.length ? (
-              notifications.map((item) => (
-                <NotificationItem
-                  key={item.id}
-                  notification={item}
-                  onRead={markNotificationRead}
-                  onDismiss={dismissNotification}
-                />
-              ))
+      <section aria-labelledby="operational-summary-title" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="operational-summary-title">Operational summary</h2>
+          <p className="text-xs text-[var(--text-muted)]">Current workspace state</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Draft content", value: drafts.length, icon: FileText, note: "Awaiting refinement or review" },
+            { label: "Failed workflows", value: failed.length, icon: AlertTriangle, note: "Needs investigation" },
+            { label: "Approved plans", value: planned.length, icon: CalendarClock, note: "Internal planning only" },
+            { label: "Brand Brain", value: `${brandProfile.completion}%`, icon: Brain, note: "Profile completeness" }
+          ].map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <Card key={metric.label} className="rounded-lg shadow-none">
+                <CardContent className="flex items-start justify-between gap-4 p-4">
+                  <div>
+                    <p className="text-xs font-medium text-[var(--text-muted)]">{metric.label}</p>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums">{metric.value}</p>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{metric.note}</p>
+                  </div>
+                  <span className="grid h-9 w-9 place-items-center rounded-md bg-[var(--bg-elevated)] text-[var(--brand-primary)]">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.75fr)]">
+        <section aria-labelledby="recent-content-title" className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="recent-content-title">Recent content</h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/posts">
+                View library
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          {recent.length ? (
+            <div className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+              {recent.map((post) => (
+                <article key={post.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <Badge variant="info">{post.platform === "twitter" ? "X" : post.platform}</Badge>
+                      <Badge variant={post.status === "failed" ? "danger" : post.status === "draft" ? "default" : "warning"}>
+                        {statusLabel(post.status)}
+                      </Badge>
+                      {previewModeEnabled ? <Badge variant="warning">Demo</Badge> : null}
+                    </div>
+                    <p className="line-clamp-2 text-sm leading-6 text-[var(--text-secondary)]">{post.content}</p>
+                  </div>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/posts">Open</Link>
+                  </Button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="border-y border-[var(--border)] py-12 text-center">
+              <FileText className="mx-auto h-6 w-6 text-[var(--text-muted)]" />
+              <p className="mt-3 text-sm font-medium">No content yet</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Create a draft to begin the review workflow.</p>
+              <Button asChild size="sm" className="mt-4">
+                <Link href="/posts/new">Create draft</Link>
+              </Button>
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="needs-attention-title" className="space-y-3">
+          <h2 id="needs-attention-title">Needs attention</h2>
+          <div className="space-y-2">
+            {brandProfile.completion < 100 ? (
+              <Link href="/dashboard/brand-brain" className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg-hover)]">
+                <Brain className="h-4 w-4 text-[var(--warning)]" />
+                <span className="min-w-0 flex-1 text-sm">Complete Brand Brain ({brandProfile.completion}%)</span>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+              </Link>
+            ) : null}
+            {failed.map((post) => (
+              <Link key={post.id} href="/posts" className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg-hover)]">
+                <AlertTriangle className="h-4 w-4 text-[var(--danger)]" />
+                <span className="min-w-0 flex-1 truncate text-sm">Failed {post.platform} content workflow</span>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+              </Link>
+            ))}
+            {!failed.length && brandProfile.completion >= 100 ? (
+              <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--text-secondary)]">
+                <ShieldCheck className="h-4 w-4 text-[var(--success)]" />
+                No urgent workspace issues.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2>Upcoming content</h2>
+              <Badge variant="default">Internal plans</Badge>
+            </div>
+            {planned.length ? (
+              <div className="mt-3 space-y-2">
+                {planned.slice(0, 3).map((post) => (
+                  <div key={post.id} className="rounded-lg border border-[var(--border)] p-3">
+                    <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{post.content}</p>
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      {post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : "Planning date not set"}
+                    </p>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <p className="py-12 text-center text-sm text-[var(--text-muted)]">No notifications.</p>
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">No approved internal plans are ready for the calendar.</p>
             )}
-          </CardContent>
-        </Card>
-      </motion.section>
-
-      <motion.section variants={itemVariants} className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2>Recent Posts</h2>
-          <p className="text-xs text-[var(--text-muted)]">Scroll horizontally</p>
-        </div>
-
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-          {posts.map((post) => (
-            <PostCard key={post.id} {...post} />
-          ))}
-        </div>
-      </motion.section>
-
-      <motion.section variants={itemVariants} className="grid gap-4 xl:grid-cols-2">
-        <WeeklyChart data={weeklyPerformance} />
-        <PlatformPieChart data={platformBreakdown} />
-      </motion.section>
-
-      <motion.section variants={itemVariants}>
-        <BrandProfileCard profile={brandProfile} />
-      </motion.section>
-    </motion.div>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }
