@@ -1,13 +1,6 @@
 # ARIA Before/After Screenshot Index
 
-The complete evidence set contains 48 baseline screenshots and 96 final production screenshots. Final screenshots cover all eight routes at six required viewport sizes in both light and dark themes. Machine-readable results are in [`verification.json`](screenshots/after/verification.json).
-
-## Contact Sheets
-
-- [Light desktop, 1440x900](screenshots/after/contact-sheets/light-desktop-1440x900.png)
-- [Dark desktop, 1440x900](screenshots/after/contact-sheets/dark-desktop-1440x900.png)
-- [Light mobile, 390x844](screenshots/after/contact-sheets/light-mobile-390x844.png)
-- [Dark mobile, 390x844](screenshots/after/contact-sheets/dark-mobile-390x844.png)
+The complete evidence set contains 48 baseline screenshots and 96 final screenshots captured from the production-built server in explicit preview mode. Final screenshots cover all eight routes at six required viewport sizes in both light and dark themes. Machine-readable results are in [`verification.json`](screenshots/after/verification.json); all 96 checks passed with zero console errors, page errors, failed requests, shell-marker failures, main-landmark failures, or horizontal overflow.
 
 ## Route Index
 

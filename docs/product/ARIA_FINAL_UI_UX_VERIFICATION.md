@@ -6,7 +6,7 @@
 - Branch: `codex/aria-final-ui-ux-redesign`
 - Canonical routes: Overview, Brand Brain, Create, Content, Approval, Calendar, Insights, Settings
 - Runtime used for final browser verification: production `next start` at `http://127.0.0.1:3200`
-- Build mode: explicit preview mode with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8015`
+- Screenshot mode: explicit preview mode on the production-built `next start` server
 
 ## Redirects
 
@@ -38,7 +38,7 @@ Automated architecture tests assert:
 
 ### Calendar
 
-The canonical Calendar is a responsive internal list-planning workspace. It includes platform and status filters, browser timezone visibility, approval and retry states, an empty state, and generated content candidates for planning. The UI explicitly states that no external publication is represented. Because the schedule API does not expose `post_id`, the candidate list does not falsely claim that it can reliably subtract already-planned posts.
+The canonical Calendar is a responsive, persistent internal list-planning workspace. It includes platform and planning-state filters, browser and item timezone visibility, approval state, internal readiness, an empty state, and a server-derived unscheduled-content queue. The UI explicitly states that no external scheduling or publication is represented. Preview screenshots label their static source as demo planning data.
 
 ### Insights
 
@@ -55,8 +55,11 @@ Settings reports database, authentication, AI provider, AI mock mode, media stor
 | `npm run lint` | Exit `0` |
 | `npm run typecheck` | Exit `0` |
 | `npm test` | Exit `0`; 5 passed, 0 failed |
-| `npm run build` | Exit `0`; compiled successfully; 48/48 static pages; traces collected |
-| Relevant backend tests | Exit `0`; 19 passed |
+| `npm run build` | Exit `0`; Next 15.5.20 compiled successfully; 49/49 pages; traces collected |
+| Backend Ruff | Exit `0`; all checks passed |
+| Backend tests | Exit `0`; 68 collected, 66 passed, 2 live-DB tests skipped |
+| `npm audit --omit=dev` | Exit `0`; 0 runtime vulnerabilities |
+| OpenAPI contract generation | Exit `0`; JSON and TypeScript contracts generated |
 | Production browser matrix | 96/96 passed |
 | Redirect direct navigation and refresh | 7/7 passed |
 | Basic accessible-name/heading/ID audit | 8/8 routes passed |
@@ -68,7 +71,7 @@ Production matrix dimensions: `1440x900`, `1280x800`, `1024x768`, `768x1024`, `3
 ## Limitations
 
 - Final screenshots use explicit preview mode; preview records are static and non-persistent.
-- No live database, external AI provider, media store, social scheduler, publisher, analytics feed, or background-worker health endpoint was verified by this frontend-only pass.
-- The schedule detail contract does not expose a post ID, so Calendar labels generated posts as planning candidates rather than confirmed unscheduled records.
+- Migration 010 passed a live Supabase PostgreSQL `BEGIN`/`ROLLBACK` validation, but permanent migration and application-level persistent E2E remain blocked without an isolated database branch or a `DATABASE_URL` credential.
+- No external AI provider, media store, social scheduler, publisher, analytics feed, or background worker was available for live integration verification.
 - External publication and social performance remain unavailable and are labelled as such.
 - Manual visual approval remains required before this draft pull request can leave draft state.
