@@ -72,4 +72,3 @@ Production matrix dimensions: `1440x900`, `1280x800`, `1024x768`, `768x1024`, `3
 - The schedule detail contract does not expose a post ID, so Calendar labels generated posts as planning candidates rather than confirmed unscheduled records.
 - External publication and social performance remain unavailable and are labelled as such.
 - Manual visual approval remains required before this draft pull request can leave draft state.
-

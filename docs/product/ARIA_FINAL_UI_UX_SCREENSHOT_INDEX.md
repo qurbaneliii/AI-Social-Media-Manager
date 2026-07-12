@@ -27,4 +27,3 @@ The complete evidence set contains 48 baseline screenshots and 96 final producti
 - Baseline: `docs/product/screenshots/before/{desktop,tablet,mobile}`
 - Final light: `docs/product/screenshots/after/light/{desktop,tablet,mobile}`
 - Final dark: `docs/product/screenshots/after/dark/{desktop,tablet,mobile}`
-
