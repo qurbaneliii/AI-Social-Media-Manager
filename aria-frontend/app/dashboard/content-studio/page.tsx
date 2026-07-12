@@ -1,5 +1,5 @@
-import { AIWorkspacePanel } from "@/components/ai-workspace/AIWorkspacePanels";
+import { redirect } from "next/navigation";
 
-export default function ContentStudioPage() {
-  return <AIWorkspacePanel mode="content" />;
+export default function LegacyContentStudioPage() {
+  redirect("/posts/new");
 }
