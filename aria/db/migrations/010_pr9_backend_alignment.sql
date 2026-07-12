@@ -111,6 +111,24 @@ ALTER TABLE ai_calendar_draft_items ADD CONSTRAINT ai_calendar_planning_state_ch
 CREATE INDEX IF NOT EXISTS idx_ai_calendar_workspace_planned
   ON ai_calendar_draft_items(workspace_id, planned_at, planning_state);
 
+ALTER TABLE ai_community_reply_drafts ADD COLUMN IF NOT EXISTS workspace_id TEXT;
+UPDATE ai_community_reply_drafts SET workspace_id = brand_id WHERE workspace_id IS NULL;
+ALTER TABLE ai_community_reply_drafts ALTER COLUMN workspace_id SET NOT NULL;
+ALTER TABLE ai_community_reply_drafts DROP CONSTRAINT IF EXISTS ai_community_workspace_id_fkey;
+ALTER TABLE ai_community_reply_drafts ADD CONSTRAINT ai_community_workspace_id_fkey
+  FOREIGN KEY (workspace_id) REFERENCES ai_workspaces(workspace_id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_ai_community_workspace_status_created
+  ON ai_community_reply_drafts(workspace_id, approval_status, created_at DESC);
+
+ALTER TABLE ai_report_drafts ADD COLUMN IF NOT EXISTS workspace_id TEXT;
+UPDATE ai_report_drafts SET workspace_id = brand_id WHERE workspace_id IS NULL;
+ALTER TABLE ai_report_drafts ALTER COLUMN workspace_id SET NOT NULL;
+ALTER TABLE ai_report_drafts DROP CONSTRAINT IF EXISTS ai_reports_workspace_id_fkey;
+ALTER TABLE ai_report_drafts ADD CONSTRAINT ai_reports_workspace_id_fkey
+  FOREIGN KEY (workspace_id) REFERENCES ai_workspaces(workspace_id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_ai_reports_workspace_status_created
+  ON ai_report_drafts(workspace_id, approval_status, created_at DESC);
+
 ALTER TABLE ai_approval_audit_events ADD COLUMN IF NOT EXISTS workspace_id TEXT;
 ALTER TABLE ai_approval_audit_events ADD COLUMN IF NOT EXISTS actor_user_id TEXT;
 ALTER TABLE ai_approval_audit_events ADD COLUMN IF NOT EXISTS actor_role VARCHAR(32);
@@ -121,6 +139,8 @@ ALTER TABLE ai_workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_workspace_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_content_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_community_reply_drafts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_report_drafts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE ai_workspaces, ai_workspace_memberships, ai_brands,
   ai_brand_memory, ai_content_drafts, ai_content_variants, ai_quality_reviews,

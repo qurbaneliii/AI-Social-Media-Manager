@@ -62,11 +62,14 @@ from ai.schemas.strategy import BrandStrategyPlan, BrandStrategyRequest
 from ai.schemas.trend import TrendInsightReport, TrendResearchRequest
 from ai.schemas.visual import VisualConceptPackage, VisualConceptRequest
 from api.dependencies import get_ai_orchestrator, get_approval_service, get_persistence_repository
+from api.routers.approval import router as approval_router
 from api.routers.product import router as product_router
 from api.routers.public_runtime import router as public_runtime_router
 from api.routers.workspace import router as workspace_router
-from core.config import get_settings
-from core.errors import register_error_handlers
+from core.config import AppSettings, get_settings
+from core.errors import APIError, error_payload, register_error_handlers
+from core.security import verify_access_token
+from repositories import ProductRepository
 
 __all__ = ["app"]
 
@@ -197,7 +200,7 @@ def get_deps() -> Dependencies:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
+    settings = AppSettings()
     app.state.settings = settings
     database_url = settings.DATABASE_URL
     app.state.db_pool = None
@@ -229,15 +232,74 @@ app.add_middleware(
 FastAPIInstrumentor.instrument_app(app)
 app.include_router(public_runtime_router)
 app.include_router(product_router)
+app.include_router(approval_router)
 app.include_router(workspace_router)
 
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request.state.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    settings = getattr(request.app.state, "settings", get_settings())
+    path = request.url.path
+    if settings.ARIA_ENV != "test" and (
+        path.startswith("/internal/ai/approval") or path == "/run" or path.startswith("/internal/captions")
+    ):
+        return JSONResponse(
+            status_code=410,
+            content=error_payload(
+                request,
+                "LEGACY_ROUTE_RETIRED",
+                "This legacy route is retired. Use the authenticated /v1 product API.",
+            ),
+        )
+    if settings.ARIA_ENV != "test" and path.startswith("/internal/ai/"):
+        try:
+            authorization = request.headers.get("Authorization", "")
+            scheme, _, token = authorization.partition(" ")
+            if scheme.lower() != "bearer" or not token:
+                raise APIError(401, "AUTHENTICATION_REQUIRED", "A valid bearer token is required.")
+            principal = verify_access_token(token, settings)
+            pool = getattr(request.app.state, "db_pool", None)
+            if pool is None:
+                raise APIError(503, "DATABASE_UNAVAILABLE", "The persistence database is not configured.")
+            workspace_id = request.headers.get("X-ARIA-Workspace-ID")
+            membership = await ProductRepository(pool).resolve_membership(principal.user_id, workspace_id)
+            if membership is None:
+                raise APIError(403, "WORKSPACE_ACCESS_DENIED", "The authenticated user has no access to this workspace.")
+            brand_id = str(membership["brand_id"]) if membership.get("brand_id") else None
+            if "/brand-profile/" in path and brand_id and path.rsplit("/", 1)[-1] != brand_id:
+                raise APIError(403, "BRAND_ACCESS_DENIED", "The selected brand does not belong to this workspace.")
+            if request.method in {"POST", "PUT", "PATCH"} and request.headers.get("content-type", "").startswith("application/json"):
+                payload = await request.json()
+                supplied_brand_ids = _collect_brand_ids(payload)
+                if brand_id and any(item != brand_id for item in supplied_brand_ids):
+                    raise APIError(403, "BRAND_ACCESS_DENIED", "The request contains brand context outside this workspace.")
+        except APIError as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=error_payload(request, exc.code, exc.message, exc.details),
+            )
     response = await call_next(request)
     response.headers["X-Request-ID"] = request.state.request_id
     return response
+
+
+def _collect_brand_ids(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = {
+            str(item)
+            for key, item in value.items()
+            if key in {"brand_id", "company_id"} and isinstance(item, (str, int))
+        }
+        for nested in value.values():
+            found.update(_collect_brand_ids(nested))
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for item in value:
+            found.update(_collect_brand_ids(item))
+        return found
+    return set()
 
 
 @app.exception_handler(BrandProfileNotFoundError)
@@ -294,10 +356,11 @@ async def health_ready(request: Request, response: Response) -> dict[str, Any]:
 @app.get("/health/dependencies")
 async def health_dependencies(request: Request) -> dict[str, str]:
     settings = getattr(request.app.state, "settings", get_settings())
+    ai_status = "demo" if settings.AI_MOCK_MODE else "configured" if os.getenv("OPENAI_API_KEY") else "unavailable"
     return {
         "database": "configured" if settings.DATABASE_URL else "unavailable",
         "authentication": "configured" if settings.JWT_SECRET else "unavailable",
-        "ai": "demo" if settings.AI_MOCK_MODE else "configured",
+        "ai": ai_status,
         "external_scheduling": "unavailable",
         "publishing": "unavailable",
         "external_analytics": "unavailable",

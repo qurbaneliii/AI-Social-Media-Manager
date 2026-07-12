@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_workspace_context
+from api.dependencies import WorkspaceContext, get_product_repository
 from core.config import AppSettings
 from core.errors import APIError, register_error_handlers
 from core.security import AuthenticatedPrincipal, verify_access_token
@@ -136,6 +137,9 @@ def test_canonical_product_routes_are_registered() -> None:
         ("GET", "/v1/insights"),
         ("GET", "/v1/capabilities"),
         ("GET", "/v1/audit"),
+        ("GET", "/v1/approval/queue"),
+        ("GET", "/v1/approval/detail/{object_type}/{object_id}"),
+        ("POST", "/v1/approval/decision"),
     }
     assert expected.issubset(route_contract)
 
@@ -149,3 +153,104 @@ def test_alignment_migration_adds_tenant_keys_and_revokes_direct_data_api_access
     assert "alter table ai_content_drafts add column if not exists workspace_id" in sql
     assert "revoke all on table" in sql
     assert "from anon, authenticated" in sql
+    assert "alter table ai_community_reply_drafts add column if not exists workspace_id" in sql
+    assert "alter table ai_report_drafts add column if not exists workspace_id" in sql
+
+
+class ApprovalContractRepository:
+    def __init__(self) -> None:
+        self.decision: dict | None = None
+
+    async def list_approval_queue(self, **values: object) -> tuple[list[dict], int]:
+        return (
+            [
+                {
+                    "object_type": "content_draft",
+                    "payload": {
+                        "draft_id": "00000000-0000-0000-0000-000000000001",
+                        "brand_id": "brand-1",
+                        "platform": "linkedin",
+                        "content_type": "post",
+                        "topic": "Tenant-safe approvals",
+                        "content_package_json": {"hook": "Review this", "caption": "Approval draft"},
+                        "approval_status": "in_review",
+                        "quality_scores_json": {},
+                        "audit_metadata_json": {},
+                        "created_at": datetime.now(tz=UTC),
+                    },
+                }
+            ],
+            47,
+        )
+
+    async def apply_approval_decision(self, **values: object) -> dict:
+        self.decision = values
+        return {
+            "record": {"draft_id": values["object_id"], "approval_status": "approved"},
+            "event": {
+                "event_id": "00000000-0000-0000-0000-000000000099",
+                "object_id": values["object_id"],
+                "object_type": values["object_type"],
+                "previous_status": "in_review",
+                "new_status": values["new_status"],
+                "action": values["action"],
+                "reviewer_id": values["actor_user_id"],
+                "reviewer_role": values["actor_role"],
+                "reason": values["reason"],
+                "requested_changes": values["requested_changes"],
+                "timestamp": datetime.now(tz=UTC),
+                "metadata": values["metadata"],
+            },
+        }
+
+
+def test_approval_queue_uses_global_total_and_decision_uses_trusted_actor() -> None:
+    from main import app
+
+    repository = ApprovalContractRepository()
+    app.dependency_overrides[get_product_repository] = lambda: repository
+    app.dependency_overrides[get_workspace_context] = lambda: WorkspaceContext(
+        workspace_id="workspace-1",
+        workspace_name="Workspace",
+        brand_id="brand-1",
+        brand_name="Brand",
+        user_id="trusted-user",
+        email="trusted@example.com",
+        role="brand_manager",
+    )
+    client = TestClient(app)
+    queue = client.get("/v1/approval/queue?limit=1&offset=0")
+    assert queue.status_code == 200
+    assert queue.json()["count"] == 47
+    assert len(queue.json()["items"]) == 1
+
+    decision = client.post(
+        "/v1/approval/approve",
+        json={
+            "object_id": "00000000-0000-0000-0000-000000000001",
+            "object_type": "content_draft",
+            "reviewer_id": "attacker-controlled",
+            "reviewer_role": "agency_admin",
+            "reason": "Reviewed",
+        },
+    )
+    assert decision.status_code == 200
+    assert repository.decision is not None
+    assert repository.decision["actor_user_id"] == "trusted-user"
+    assert repository.decision["actor_role"] == "brand_manager"
+    assert decision.json()["decision"]["reviewer_id"] == "trusted-user"
+    app.dependency_overrides.clear()
+
+
+def test_legacy_approval_and_run_routes_are_retired_in_production() -> None:
+    from main import app
+
+    with TestClient(app) as client:
+        previous = app.state.settings
+        app.state.settings = AppSettings(ARIA_ENV="production", JWT_SECRET=SECRET)
+        approval = client.get("/internal/ai/approval/queue")
+        run = client.post("/run", json={})
+        app.state.settings = previous
+    assert approval.status_code == 410
+    assert approval.json()["error"]["code"] == "LEGACY_ROUTE_RETIRED"
+    assert run.status_code == 410

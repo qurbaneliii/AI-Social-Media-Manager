@@ -246,6 +246,7 @@ async def insights(
 async def capabilities(
     request: Request,
     settings: AppSettings = Depends(get_app_settings),
+    _context: WorkspaceContext = Depends(get_workspace_context),
 ) -> CapabilitiesResponse:
     database_available = getattr(request.app.state, "db_pool", None) is not None
     ai_live = not settings.AI_MOCK_MODE and bool(os.environ.get("OPENAI_API_KEY"))
@@ -253,7 +254,10 @@ async def capabilities(
         database=CapabilityStatus(status="Available" if database_available else "Unavailable", detail="PostgreSQL persistence pool."),
         authentication=CapabilityStatus(status="Configured" if settings.JWT_SECRET else "Unavailable", detail="Signed bearer-token verification."),
         ai_provider=CapabilityStatus(status="Configured" if ai_live else "Unavailable", detail="Central backend OpenAI gateway."),
-        ai_mock_mode=CapabilityStatus(status="Demo" if settings.AI_MOCK_MODE else "Available", detail="Explicit deterministic AI mode."),
+        ai_mock_mode=CapabilityStatus(
+            status="Demo" if settings.AI_MOCK_MODE else "Unavailable",
+            detail="Explicit deterministic AI mode is enabled." if settings.AI_MOCK_MODE else "Mock mode is disabled.",
+        ),
         media_storage=CapabilityStatus(status="Unavailable", detail="No verified media upload and retrieval service."),
         external_scheduling=CapabilityStatus(status="Unavailable", detail="Calendar stores internal plans only."),
         publishing=CapabilityStatus(status="Unavailable", detail="No platform publishing adapter is connected."),

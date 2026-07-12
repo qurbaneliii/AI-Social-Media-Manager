@@ -6,6 +6,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
+from ai.approval.schemas import ApprovalAction, ApprovalObjectType, ApprovalStatus
+from ai.approval.transitions import validate_transition
+
 
 def _dict(row: Any) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
@@ -23,6 +26,14 @@ def _decode(value: Any, fallback: Any) -> Any:
     if isinstance(value, str):
         return json.loads(value)
     return value
+
+
+def _approval_event(row: Any) -> dict[str, Any] | None:
+    event = _dict(row)
+    if event:
+        event["requested_changes"] = _decode(event.get("requested_changes"), [])
+        event["metadata"] = _decode(event.get("metadata"), {})
+    return event
 
 
 class ProductRepository:
@@ -606,3 +617,210 @@ class ProductRepository:
         """
         async with self.connection() as connection:
             return [dict(row) for row in await connection.fetch(query, workspace_id, limit, offset)]
+
+    async def list_approval_queue(
+        self,
+        *,
+        workspace_id: str,
+        brand_id: str | None,
+        status: str | None,
+        object_type: str | None,
+        platform: str | None,
+        created_after: datetime | None,
+        created_before: datetime | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        args: list[Any] = [workspace_id]
+        common = ["workspace_id = $1"]
+        for value, column, operator in (
+            (brand_id, "brand_id", "="),
+            (status, "approval_status", "="),
+            (created_after, "created_at", ">="),
+            (created_before, "created_at", "<="),
+        ):
+            if value is None or value == "":
+                continue
+            args.append(value)
+            common.append(f"{column} {operator} ${len(args)}")
+        where = " AND ".join(common)
+        selected_types = {object_type} if object_type else {item.value for item in ApprovalObjectType}
+        selects: list[str] = []
+        if ApprovalObjectType.CONTENT_DRAFT.value in selected_types:
+            platform_filter = ""
+            if platform:
+                args.append(platform)
+                platform_filter = f" AND platform = ${len(args)}"
+            selects.append(
+                f"SELECT draft_id::text AS object_id, 'content_draft' AS object_type, brand_id, approval_status, "
+                f"created_at, updated_at, platform, to_jsonb(ai_content_drafts) AS payload "
+                f"FROM ai_content_drafts WHERE {where}{platform_filter}"
+            )
+        if ApprovalObjectType.CALENDAR_DRAFT.value in selected_types:
+            platform_filter = ""
+            if platform:
+                args.append(platform)
+                platform_filter = f" AND platform = ${len(args)}"
+            selects.append(
+                f"SELECT calendar_item_id::text, 'calendar_draft', brand_id, approval_status, created_at, updated_at, "
+                f"platform, to_jsonb(ai_calendar_draft_items) FROM ai_calendar_draft_items WHERE {where}{platform_filter}"
+            )
+        if not platform and ApprovalObjectType.COMMUNITY_REPLY.value in selected_types:
+            selects.append(
+                f"SELECT reply_draft_id::text, 'community_reply', brand_id, approval_status, created_at, updated_at, "
+                f"NULL::varchar, to_jsonb(ai_community_reply_drafts) FROM ai_community_reply_drafts WHERE {where}"
+            )
+        if not platform and ApprovalObjectType.REPORT_DRAFT.value in selected_types:
+            selects.append(
+                f"SELECT report_draft_id::text, 'report_draft', brand_id, approval_status, created_at, updated_at, "
+                f"NULL::varchar, to_jsonb(ai_report_drafts) FROM ai_report_drafts WHERE {where}"
+            )
+        if not selects:
+            return [], 0
+        union = " UNION ALL ".join(selects)
+        async with self.connection() as connection:
+            total = int(await connection.fetchval(f"WITH queue AS ({union}) SELECT count(*) FROM queue", *args))
+            rows = await connection.fetch(
+                f"WITH queue AS ({union}) SELECT * FROM queue ORDER BY created_at DESC, object_id DESC "
+                f"LIMIT ${len(args) + 1} OFFSET ${len(args) + 2}",
+                *args,
+                limit,
+                offset,
+            )
+        items = [dict(row) for row in rows]
+        for item in items:
+            item["payload"] = _decode(item.get("payload"), {})
+        return items, total
+
+    async def get_approval_detail(
+        self,
+        workspace_id: str,
+        object_type: ApprovalObjectType,
+        object_id: str,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        table, id_column = self._approval_table(object_type)
+        async with self.connection() as connection:
+            row = _dict(
+                await connection.fetchrow(
+                    f"SELECT * FROM {table} WHERE workspace_id = $1 AND {id_column} = $2::uuid",
+                    workspace_id,
+                    object_id,
+                )
+            )
+            if row is None:
+                return None
+            events = await connection.fetch(
+                """
+                SELECT event_id, object_id, object_type, previous_status, new_status, action,
+                       actor_user_id AS reviewer_id, actor_role AS reviewer_role, reason,
+                       requested_changes, decision_timestamp AS timestamp, metadata_json AS metadata
+                FROM ai_approval_audit_events
+                WHERE workspace_id = $1 AND object_type = $2 AND object_id = $3
+                ORDER BY created_at ASC, event_id ASC
+                """,
+                workspace_id,
+                object_type.value,
+                object_id,
+            )
+        return row, [_approval_event(event) or {} for event in events]
+
+    async def apply_approval_decision(
+        self,
+        *,
+        workspace_id: str,
+        object_type: ApprovalObjectType,
+        object_id: str,
+        action: ApprovalAction,
+        new_status: ApprovalStatus,
+        actor_user_id: str,
+        actor_role: str,
+        reason: str,
+        requested_changes: list[str],
+        metadata: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        table, id_column = self._approval_table(object_type)
+        async with self.connection() as connection, connection.transaction():
+            record = _dict(
+                await connection.fetchrow(
+                    f"SELECT * FROM {table} WHERE workspace_id = $1 AND {id_column} = $2::uuid FOR UPDATE",
+                    workspace_id,
+                    object_id,
+                )
+            )
+            if record is None:
+                return None
+            previous_status = ApprovalStatus(str(record["approval_status"]))
+            if previous_status == new_status:
+                event = _approval_event(
+                    await connection.fetchrow(
+                        """
+                        SELECT event_id, object_id, object_type, previous_status, new_status, action,
+                               actor_user_id AS reviewer_id, actor_role AS reviewer_role, reason,
+                               requested_changes, decision_timestamp AS timestamp, metadata_json AS metadata
+                        FROM ai_approval_audit_events
+                        WHERE workspace_id = $1 AND object_type = $2 AND object_id = $3 AND new_status = $4
+                        ORDER BY created_at DESC LIMIT 1
+                        """,
+                        workspace_id,
+                        object_type.value,
+                        object_id,
+                        new_status.value,
+                    )
+                )
+                if event:
+                    return {"record": record, "event": event, "idempotent": True}
+            validate_transition(object_type, previous_status, new_status)
+            record = _dict(
+                await connection.fetchrow(
+                    f"UPDATE {table} SET approval_status = $3, updated_at = now() "
+                    f"WHERE workspace_id = $1 AND {id_column} = $2::uuid AND approval_status = $4 RETURNING *",
+                    workspace_id,
+                    object_id,
+                    new_status.value,
+                    previous_status.value,
+                )
+            )
+            if record is None:
+                return None
+            if object_type == ApprovalObjectType.CALENDAR_DRAFT and new_status == ApprovalStatus.READY_FOR_SCHEDULING:
+                await connection.execute(
+                    "UPDATE ai_calendar_draft_items SET planning_state = 'ready_for_scheduling' "
+                    "WHERE workspace_id = $1 AND calendar_item_id = $2::uuid",
+                    workspace_id,
+                    object_id,
+                )
+            event = _approval_event(
+                await connection.fetchrow(
+                    """
+                    INSERT INTO ai_approval_audit_events (
+                      workspace_id, object_id, object_type, previous_status, new_status, action,
+                      reviewer_id, reviewer_role, actor_user_id, actor_role, reason,
+                      requested_changes, decision_timestamp, metadata_json
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, $9, $10::jsonb, now(), $11::jsonb)
+                    RETURNING event_id, object_id, object_type, previous_status, new_status, action,
+                              actor_user_id AS reviewer_id, actor_role AS reviewer_role, reason,
+                              requested_changes, decision_timestamp AS timestamp, metadata_json AS metadata
+                    """,
+                    workspace_id,
+                    object_id,
+                    object_type.value,
+                    previous_status.value,
+                    new_status.value,
+                    action.value,
+                    actor_user_id,
+                    actor_role,
+                    reason,
+                    _json(requested_changes),
+                    _json(metadata),
+                )
+            )
+            return {"record": record, "event": event, "idempotent": False}
+
+    @staticmethod
+    def _approval_table(object_type: ApprovalObjectType) -> tuple[str, str]:
+        return {
+            ApprovalObjectType.CONTENT_DRAFT: ("ai_content_drafts", "draft_id"),
+            ApprovalObjectType.CALENDAR_DRAFT: ("ai_calendar_draft_items", "calendar_item_id"),
+            ApprovalObjectType.COMMUNITY_REPLY: ("ai_community_reply_drafts", "reply_draft_id"),
+            ApprovalObjectType.REPORT_DRAFT: ("ai_report_drafts", "report_draft_id"),
+        }[object_type]

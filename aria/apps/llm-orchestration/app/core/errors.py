@@ -53,3 +53,10 @@ def register_error_handlers(app: FastAPI) -> None:
                 {"errors": exc.errors()},
             ),
         )
+
+    @app.exception_handler(Exception)
+    async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=500,
+            content=error_payload(request, "INTERNAL_SERVER_ERROR", "The server could not complete the request."),
+        )

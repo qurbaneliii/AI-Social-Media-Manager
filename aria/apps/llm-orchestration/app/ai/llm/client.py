@@ -49,6 +49,9 @@ class LLMClient:
             )
             return output_model.model_validate(mock_factory())
 
+        if not self.settings.openai_api_key or self.settings.openai_api_key == "replace-me":
+            raise LLMError("The live AI provider is not configured.")
+
         return await self._call_openai_structured(messages, output_model, temperature=temperature)
 
     async def _call_openai_structured(

@@ -279,6 +279,10 @@ function getAuthToken(): string | null {
   );
 }
 
+function isPreviewMode(): boolean {
+  return typeof window !== "undefined" && window.localStorage.getItem("isPreview") === "true";
+}
+
 async function parseError(response: Response): Promise<ApprovalApiError> {
   let detail: unknown;
   try {
@@ -335,92 +339,97 @@ function actionBody(payload: ApprovalActionRequest | ApprovalDecisionRequest): s
 }
 
 export function listApprovalQueue(filters?: ApprovalQueueFilters): Promise<ApprovalQueueResponse> {
-  return requestApprovalApi(`/internal/ai/approval/queue${buildQuery(filters)}`);
+  if (isPreviewMode()) return Promise.resolve({ items: [], count: 0, limit: filters?.limit ?? 50, offset: filters?.offset ?? 0 });
+  return requestApprovalApi(`/v1/approval/queue${buildQuery(filters)}`);
 }
 
 export function listContentApprovalQueue(
   filters?: Omit<ApprovalQueueFilters, "object_type">
 ): Promise<ApprovalQueueResponse<ContentDraftQueueItem>> {
-  return requestApprovalApi(`/internal/ai/approval/queue/content${buildQuery(filters)}`);
+  if (isPreviewMode()) return Promise.resolve({ items: [], count: 0, limit: filters?.limit ?? 50, offset: filters?.offset ?? 0 });
+  return requestApprovalApi(`/v1/approval/queue${buildQuery({ ...filters, object_type: "content_draft" })}`);
 }
 
 export function listCalendarApprovalQueue(
   filters?: Omit<ApprovalQueueFilters, "object_type">
 ): Promise<ApprovalQueueResponse<CalendarDraftQueueItem>> {
-  return requestApprovalApi(`/internal/ai/approval/queue/calendar${buildQuery(filters)}`);
+  if (isPreviewMode()) return Promise.resolve({ items: [], count: 0, limit: filters?.limit ?? 50, offset: filters?.offset ?? 0 });
+  return requestApprovalApi(`/v1/approval/queue${buildQuery({ ...filters, object_type: "calendar_draft" })}`);
 }
 
 export function listCommunityApprovalQueue(
   filters?: Omit<ApprovalQueueFilters, "object_type">
 ): Promise<ApprovalQueueResponse<CommunityReplyQueueItem>> {
-  return requestApprovalApi(`/internal/ai/approval/queue/community${buildQuery(filters)}`);
+  if (isPreviewMode()) return Promise.resolve({ items: [], count: 0, limit: filters?.limit ?? 50, offset: filters?.offset ?? 0 });
+  return requestApprovalApi(`/v1/approval/queue${buildQuery({ ...filters, object_type: "community_reply" })}`);
 }
 
 export function listReportApprovalQueue(
   filters?: Omit<ApprovalQueueFilters, "object_type">
 ): Promise<ApprovalQueueResponse<ReportDraftQueueItem>> {
-  return requestApprovalApi(`/internal/ai/approval/queue/reports${buildQuery(filters)}`);
+  if (isPreviewMode()) return Promise.resolve({ items: [], count: 0, limit: filters?.limit ?? 50, offset: filters?.offset ?? 0 });
+  return requestApprovalApi(`/v1/approval/queue${buildQuery({ ...filters, object_type: "report_draft" })}`);
 }
 
 export function getApprovalDetail(objectType: ApprovalObjectType, objectId: string): Promise<ApprovalDetail> {
   return requestApprovalApi(
-    `/internal/ai/approval/detail/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}`
+    `/v1/approval/detail/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}`
   );
 }
 
 export function getContentDraftDetail(draftId: string): Promise<ContentDraftDetail> {
-  return requestApprovalApi(`/internal/ai/approval/detail/content/${encodeURIComponent(draftId)}`);
+  return getApprovalDetail("content_draft", draftId) as Promise<ContentDraftDetail>;
 }
 
 export function getCalendarDraftDetail(itemId: string): Promise<CalendarDraftDetail> {
-  return requestApprovalApi(`/internal/ai/approval/detail/calendar/${encodeURIComponent(itemId)}`);
+  return getApprovalDetail("calendar_draft", itemId) as Promise<CalendarDraftDetail>;
 }
 
 export function getCommunityReplyDetail(replyDraftId: string): Promise<CommunityReplyDraftDetail> {
-  return requestApprovalApi(`/internal/ai/approval/detail/community/${encodeURIComponent(replyDraftId)}`);
+  return getApprovalDetail("community_reply", replyDraftId) as Promise<CommunityReplyDraftDetail>;
 }
 
 export function getReportDraftDetail(reportId: string): Promise<ReportDraftDetail> {
-  return requestApprovalApi(`/internal/ai/approval/detail/reports/${encodeURIComponent(reportId)}`);
+  return getApprovalDetail("report_draft", reportId) as Promise<ReportDraftDetail>;
 }
 
 export function applyApprovalDecision(payload: ApprovalDecisionRequest): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/decision", {
+  return requestApprovalApi("/v1/approval/decision", {
     method: "POST",
     body: actionBody(payload)
   });
 }
 
 export function submitForReview(payload: ApprovalActionRequest): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/submit", {
+  return requestApprovalApi("/v1/approval/submit", {
     method: "POST",
     body: actionBody(payload)
   });
 }
 
 export function approveDraft(payload: ApprovalActionRequest): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/approve", {
+  return requestApprovalApi("/v1/approval/approve", {
     method: "POST",
     body: actionBody(payload)
   });
 }
 
 export function rejectDraft(payload: ApprovalActionRequest): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/reject", {
+  return requestApprovalApi("/v1/approval/reject", {
     method: "POST",
     body: actionBody(payload)
   });
 }
 
 export function requestDraftChanges(payload: RequestChangesPayload): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/request-changes", {
+  return requestApprovalApi("/v1/approval/request-changes", {
     method: "POST",
     body: actionBody(payload)
   });
 }
 
 export function archiveDraft(payload: ApprovalActionRequest): Promise<ApprovalResult> {
-  return requestApprovalApi("/internal/ai/approval/archive", {
+  return requestApprovalApi("/v1/approval/archive", {
     method: "POST",
     body: actionBody(payload)
   });
@@ -449,6 +458,6 @@ export function listApprovalAuditEvents(
   objectId: string
 ): Promise<ApprovalAuditEvent[]> {
   return requestApprovalApi(
-    `/internal/ai/approval/audit/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}`
+    `/v1/approval/audit/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}`
   );
 }

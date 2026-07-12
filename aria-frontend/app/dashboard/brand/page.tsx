@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Brain, CalendarClock, FileText, Plus, ShieldCheck } from "lucide-react";
 
@@ -8,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardFeed } from "@/hooks/useDashboardFeed";
+import { getOverview } from "@/lib/api";
+import { getBrandProfile } from "@/lib/api/ai-workspace";
+import { getClientSession } from "@/lib/client-session";
 import { useDashboardStore } from "@/lib/store";
 
 const previewModeEnabled = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true";
@@ -25,13 +29,18 @@ const statusLabel = (status: string): string => {
 export default function BrandDashboardPage() {
   const feed = useDashboardFeed();
   const brandProfile = useDashboardStore((state) => state.brandProfile);
+  const companyId = feed.companyId ?? getClientSession().companyId;
+  const overview = useQuery({ queryKey: ["overview"], queryFn: getOverview, enabled: Boolean(companyId) });
+  const brand = useQuery({ queryKey: ["brand-profile", companyId], queryFn: () => getBrandProfile(companyId!), enabled: Boolean(companyId), retry: false });
 
-  const drafts = feed.posts.filter((post) => post.status === "draft");
-  const failed = feed.posts.filter((post) => post.status === "failed");
-  const planned = feed.posts.filter((post) => post.status === "scheduled");
+  const summary = overview.data?.summary;
+  const drafts = summary?.drafts ?? 0;
+  const failed = summary?.failed_generations ?? 0;
+  const planned = overview.data?.upcoming_plans ?? [];
+  const completeness = brand.data?.validation.completeness_score ?? 0;
   const recent = feed.posts.slice(0, 4);
 
-  if (feed.isLoading) {
+  if (feed.isLoading || overview.isLoading) {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Loading Overview">
         <Skeleton className="h-24" />
@@ -75,10 +84,10 @@ export default function BrandDashboardPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "Draft content", value: drafts.length, icon: FileText, note: "Awaiting refinement or review" },
-            { label: "Failed workflows", value: failed.length, icon: AlertTriangle, note: "Needs investigation" },
-            { label: "Approved plans", value: planned.length, icon: CalendarClock, note: "Internal planning only" },
-            { label: "Brand Brain", value: `${brandProfile.completion}%`, icon: Brain, note: "Profile completeness" }
+            { label: "Draft content", value: drafts, icon: FileText, note: "Awaiting refinement or review" },
+            { label: "Failed workflows", value: failed, icon: AlertTriangle, note: "Needs investigation" },
+            { label: "Approved plans", value: summary?.approved_internal_plans ?? 0, icon: CalendarClock, note: "Internal planning only" },
+            { label: "Brand Brain", value: `${completeness}%`, icon: Brain, note: "Persisted profile completeness" }
           ].map((metric) => {
             const Icon = metric.icon;
             return (
@@ -146,21 +155,21 @@ export default function BrandDashboardPage() {
         <section aria-labelledby="needs-attention-title" className="space-y-3">
           <h2 id="needs-attention-title">Needs attention</h2>
           <div className="space-y-2">
-            {brandProfile.completion < 100 ? (
+            {completeness < 100 ? (
               <Link href="/dashboard/brand-brain" className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg-hover)]">
                 <Brain className="h-4 w-4 text-[var(--warning)]" />
-                <span className="min-w-0 flex-1 text-sm">Complete Brand Brain ({brandProfile.completion}%)</span>
+                <span className="min-w-0 flex-1 text-sm">Complete Brand Brain ({completeness}%)</span>
                 <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
               </Link>
             ) : null}
-            {failed.map((post) => (
-              <Link key={post.id} href="/posts" className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg-hover)]">
+            {failed > 0 ? (
+              <Link href="/posts" className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border)] p-3 hover:bg-[var(--bg-hover)]">
                 <AlertTriangle className="h-4 w-4 text-[var(--danger)]" />
-                <span className="min-w-0 flex-1 truncate text-sm">Failed {post.platform} content workflow</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{failed} failed content workflow{failed === 1 ? "" : "s"}</span>
                 <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
               </Link>
-            ))}
-            {!failed.length && brandProfile.completion >= 100 ? (
+            ) : null}
+            {failed === 0 && completeness >= 100 ? (
               <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--text-secondary)]">
                 <ShieldCheck className="h-4 w-4 text-[var(--success)]" />
                 No urgent workspace issues.
@@ -176,10 +185,10 @@ export default function BrandDashboardPage() {
             {planned.length ? (
               <div className="mt-3 space-y-2">
                 {planned.slice(0, 3).map((post) => (
-                  <div key={post.id} className="rounded-lg border border-[var(--border)] p-3">
-                    <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{post.content}</p>
+                  <div key={String(post.calendar_item_id)} className="rounded-lg border border-[var(--border)] p-3">
+                    <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{String(post.platform ?? "Content plan")}</p>
                     <p className="mt-2 text-xs text-[var(--text-muted)]">
-                      {post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : "Planning date not set"}
+                      {post.planned_at ? new Date(String(post.planned_at)).toLocaleString() : "Planning date not set"}
                     </p>
                   </div>
                 ))}

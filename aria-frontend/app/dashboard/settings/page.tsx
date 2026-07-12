@@ -1,8 +1,10 @@
 "use client";
 
 import { BarChart3, BrainCircuit, Building2, CalendarClock, CloudUpload, Database, LockKeyhole, Send, Server, ShieldCheck, Workflow } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { getCapabilities } from "@/lib/api";
 import { getClientSession } from "@/lib/client-session";
 
 function DiagnosticRow({ icon: Icon, label, value, detail, tone = "neutral" }: { icon: typeof Server; label: string; value: string; detail: string; tone?: "neutral" | "success" | "warning" }) {
@@ -19,7 +21,8 @@ export default function SettingsPage() {
   const session = useMemo(() => getClientSession(), []);
   const previewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
   const apiConfigured = Boolean(process.env.NEXT_PUBLIC_API_BASE_URL?.trim());
-  const connectedStatus = apiConfigured ? "Degraded" : "Unavailable";
+  const capabilities = useQuery({ queryKey: ["capabilities"], queryFn: getCapabilities, enabled: !previewMode && apiConfigured });
+  const capability = (key: keyof NonNullable<typeof capabilities.data>, fallback: string) => capabilities.data?.[key] ?? { status: capabilities.isError ? "Degraded" : "Unavailable", detail: fallback, interactive: false };
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-7">
@@ -43,15 +46,15 @@ export default function SettingsPage() {
         <div className="mt-2">
           <DiagnosticRow icon={Server} label="Environment mode" value={previewMode ? "Preview" : "Connected"} tone={previewMode ? "warning" : "success"} detail={previewMode ? "Static demo data is enabled and changes do not persist." : "The product expects authenticated backend services and persisted data."} />
           <DiagnosticRow icon={Database} label="Core API configuration" value={apiConfigured ? "Configured" : "Missing"} tone={apiConfigured ? "success" : "warning"} detail="The canonical frontend uses NEXT_PUBLIC_API_BASE_URL. Production does not silently fall back to localhost." />
-          <DiagnosticRow icon={Database} label="Database" value={previewMode ? "Demo" : connectedStatus} tone="warning" detail={previewMode ? "Preview records are static and are not persisted to a database." : "Database health is backend-managed and is not exposed by a verified frontend diagnostic endpoint."} />
-          <DiagnosticRow icon={ShieldCheck} label="Authentication" value={previewMode ? "Demo" : session.token ? "Available" : "Unavailable"} tone={previewMode ? "warning" : session.token ? "success" : "warning"} detail={previewMode ? "A preview session is active; it is not a production identity." : session.token ? "A browser session exists. Protected backend routes must still verify it independently." : "No authenticated browser session is available."} />
-          <DiagnosticRow icon={BrainCircuit} label="AI provider" value={previewMode ? "Demo" : connectedStatus} tone="warning" detail={previewMode ? "Preview generation is deterministic and does not contact an AI provider." : "Model selection and provider credentials are backend-controlled; live provider health is not exposed here."} />
-          <DiagnosticRow icon={BrainCircuit} label="AI mock mode" value={previewMode ? "Demo" : "Unavailable"} tone={previewMode ? "warning" : "neutral"} detail={previewMode ? "Mock output is visibly identified throughout the product." : "Normal connected mode does not silently fall back to mock generation."} />
-          <DiagnosticRow icon={CloudUpload} label="Media storage" value="Unavailable" tone="neutral" detail="No verified upload and retrieval capability is exposed by the canonical product workflow." />
-          <DiagnosticRow icon={CalendarClock} label="External scheduling" value="Unavailable" tone="neutral" detail="Calendar records represent internal planning only; no platform schedule confirmation is available." />
-          <DiagnosticRow icon={Send} label="Publishing" value="Unavailable" tone="neutral" detail="ARIA does not claim publication without a confirmed external platform response." />
-          <DiagnosticRow icon={BarChart3} label="External analytics" value="Unavailable" tone="neutral" detail="Insights shows internal quality and audit data; no live social performance feed is configured." />
-          <DiagnosticRow icon={Workflow} label="Background workers" value="Unavailable" tone="neutral" detail="Worker health and queue depth are not exposed through a verified product diagnostic endpoint." />
+          <DiagnosticRow icon={Database} label="Database" value={previewMode ? "Demo" : capability("database", "Database health could not be verified.").status} tone="warning" detail={previewMode ? "Preview records are static and are not persisted to a database." : capability("database", "Database health could not be verified.").detail} />
+          <DiagnosticRow icon={ShieldCheck} label="Authentication" value={previewMode ? "Demo" : capability("authentication", "Authentication health could not be verified.").status} tone={previewMode ? "warning" : "success"} detail={previewMode ? "A preview session is active; it is not a production identity." : capability("authentication", "Authentication health could not be verified.").detail} />
+          <DiagnosticRow icon={BrainCircuit} label="AI provider" value={previewMode ? "Demo" : capability("ai_provider", "AI provider health could not be verified.").status} tone="warning" detail={previewMode ? "Preview generation is deterministic and does not contact an AI provider." : capability("ai_provider", "AI provider health could not be verified.").detail} />
+          <DiagnosticRow icon={BrainCircuit} label="AI mock mode" value={previewMode ? "Demo" : capability("ai_mock_mode", "AI mode could not be verified.").status} tone={previewMode ? "warning" : "neutral"} detail={previewMode ? "Mock output is visibly identified throughout the product." : capability("ai_mock_mode", "AI mode could not be verified.").detail} />
+          <DiagnosticRow icon={CloudUpload} label="Media storage" value={capability("media_storage", "Media storage is unavailable.").status} tone="neutral" detail={capability("media_storage", "Media storage is unavailable.").detail} />
+          <DiagnosticRow icon={CalendarClock} label="External scheduling" value={capability("external_scheduling", "External scheduling is unavailable.").status} tone="neutral" detail={capability("external_scheduling", "External scheduling is unavailable.").detail} />
+          <DiagnosticRow icon={Send} label="Publishing" value={capability("publishing", "Publishing is unavailable.").status} tone="neutral" detail={capability("publishing", "Publishing is unavailable.").detail} />
+          <DiagnosticRow icon={BarChart3} label="External analytics" value={capability("external_analytics", "External analytics is unavailable.").status} tone="neutral" detail={capability("external_analytics", "External analytics is unavailable.").detail} />
+          <DiagnosticRow icon={Workflow} label="Background workers" value={capability("background_workers", "Background workers are unavailable.").status} tone="neutral" detail={capability("background_workers", "Background workers are unavailable.").detail} />
           <DiagnosticRow icon={LockKeyhole} label="Credential boundary" value="Server only" tone="success" detail="No OpenAI or Anthropic credential is accepted or stored by this frontend." />
         </div>
       </section>
