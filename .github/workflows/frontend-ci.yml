@@ -9,6 +9,26 @@ permissions:
   contents: read
 
 jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: aria/apps/llm-orchestration/pyproject.toml
+      - name: Install backend dependencies
+        run: pip install -e aria/apps/llm-orchestration ruff pytest
+      - name: Backend lint
+        run: ruff check aria/apps/llm-orchestration/app aria/apps/llm-orchestration/tests
+      - name: Backend tests
+        run: python -m pytest aria/apps/llm-orchestration/tests -q
+        env:
+          PYTHONPATH: aria/apps/llm-orchestration/app
+          ARIA_ENV: test
+          AI_MOCK_MODE: "true"
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -23,18 +43,33 @@ jobs:
           cache: npm
           cache-dependency-path: aria-frontend/package-lock.json
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: aria/apps/llm-orchestration/pyproject.toml
+
+      - name: Install contract export dependencies
+        run: pip install -e ../aria/apps/llm-orchestration
+
       - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Build static frontend
-        run: |
-          mv app/api ../_api_disabled_for_pages
-          trap 'mv ../_api_disabled_for_pages app/api' EXIT
-          npm run build
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Verify generated API contracts
+        run: npm run contracts:check
+
+      - name: Build production frontend
+        run: npm run build
         env:
-          NEXT_PUBLIC_IS_STATIC: true
-          NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager
-          OPENAI_API_KEY: dummy
+          DATABASE_URL: postgresql://aria:aria@localhost:5432/aria
+          JWT_SECRET: ci-only-not-a-production-secret
+          NEXT_PUBLIC_API_BASE_URL: https://aria-api.example.invalid
