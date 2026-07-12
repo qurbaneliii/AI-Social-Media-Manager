@@ -31,6 +31,11 @@ export interface NavigationItem {
   icon: LucideIcon;
   roles: UserRole[];
   section: "main" | "settings" | "mobile";
+  mobile: "primary" | "more" | false;
+  commandShortcut: string;
+  breadcrumbLabel: string;
+  pageTitle: string;
+  description: string;
   highlight?: boolean;
 }
 
@@ -46,6 +51,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: LayoutDashboard,
     roles: ALL_ROLES,
     section: "main",
+    mobile: "primary",
+    commandShortcut: "G O",
+    breadcrumbLabel: "Overview",
+    pageTitle: "Overview",
+    description: "Operational priorities, recent content, and workspace readiness.",
   },
   {
     id: "brand-brain",
@@ -54,6 +64,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Brain,
     roles: OPERATOR_ROLES,
     section: "main",
+    mobile: "more",
+    commandShortcut: "G B",
+    breadcrumbLabel: "Brand Brain",
+    pageTitle: "Brand Brain",
+    description: "Brand identity, audience, language, claims, and platform context.",
   },
   {
     id: "create",
@@ -62,6 +77,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: PlusCircle,
     roles: OPERATOR_ROLES,
     section: "main",
+    mobile: "primary",
+    commandShortcut: "G C",
+    breadcrumbLabel: "Create",
+    pageTitle: "Create",
+    description: "Build, refine, review, and save approval-ready social content.",
     highlight: true,
   },
   {
@@ -71,6 +91,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: FileText,
     roles: ALL_ROLES,
     section: "main",
+    mobile: "primary",
+    commandShortcut: "G P",
+    breadcrumbLabel: "Content",
+    pageTitle: "Content Library",
+    description: "Search and manage drafts, variants, ownership, and approval state.",
   },
   {
     id: "calendar",
@@ -79,6 +104,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Calendar,
     roles: OPERATOR_ROLES,
     section: "main",
+    mobile: "more",
+    commandShortcut: "G K",
+    breadcrumbLabel: "Calendar",
+    pageTitle: "Calendar",
+    description: "Plan approved content and distinguish readiness from external scheduling.",
   },
   {
     id: "approval",
@@ -87,6 +117,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ShieldCheck,
     roles: OPERATOR_ROLES,
     section: "main",
+    mobile: "primary",
+    commandShortcut: "G A",
+    breadcrumbLabel: "Approval",
+    pageTitle: "Approval",
+    description: "Review content, quality, requested changes, and trusted audit history.",
   },
   {
     id: "insights",
@@ -95,6 +130,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BarChart2,
     roles: INSIGHT_ROLES,
     section: "main",
+    mobile: "more",
+    commandShortcut: "G I",
+    breadcrumbLabel: "Insights",
+    pageTitle: "Insights",
+    description: "Understand performance with explicit source and confidence labels.",
   },
   {
     id: "settings",
@@ -103,6 +143,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Settings,
     roles: ALL_ROLES,
     section: "settings",
+    mobile: "more",
+    commandShortcut: "G S",
+    breadcrumbLabel: "Settings",
+    pageTitle: "Settings",
+    description: "Manage account, workspace, security, AI status, and diagnostics.",
   },
   {
     id: "more",
@@ -111,11 +156,15 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: MoreHorizontal,
     roles: ALL_ROLES,
     section: "mobile",
+    mobile: "primary",
+    commandShortcut: "",
+    breadcrumbLabel: "More",
+    pageTitle: "More",
+    description: "Open secondary workspace destinations.",
   },
 ];
 
 const MOBILE_PRIMARY_IDS: NavigationItemId[] = ["overview", "create", "content", "approval", "more"];
-const MOBILE_PRIMARY_ROUTE_IDS = new Set<NavigationItemId>(["overview", "create", "content", "approval"]);
 
 export const isActiveRoute = (pathname: string, href: string): boolean => {
   if (href === "/posts" && pathname === "/posts/new") {
@@ -150,7 +199,18 @@ export const getMobileNavigationItems = (role?: UserRole | null): NavigationItem
 };
 
 export const getMobileMoreNavigationItems = (role?: UserRole | null): NavigationItem[] => {
-  return getNavigationItems(role).filter((item) => !MOBILE_PRIMARY_ROUTE_IDS.has(item.id));
+  return getNavigationItems(role).filter((item) => item.mobile === "more");
+};
+
+export const getCommandNavigationItems = (role?: UserRole | null): NavigationItem[] => {
+  return getNavigationItems(role).filter((item) => item.commandShortcut);
+};
+
+export const getActiveNavigationItem = (
+  pathname: string,
+  role?: UserRole | null
+): NavigationItem | undefined => {
+  return getNavigationItems(role).find((item) => isActiveRoute(pathname, item.href));
 };
 
 export const getDefaultRouteForRole = (role: UserRole): string => {

@@ -32,20 +32,10 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { useAuth } from "@/context/AuthContext";
 import { useDashboardFeed } from "@/hooks/useDashboardFeed";
 import { useDashboardStore } from "@/lib/store";
+import { getActiveNavigationItem, getCommandNavigationItems, getNavigationItems } from "@/lib/navigation";
 
 const previewModeEnabled =
   process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
-
-const commandActions = [
-  { label: "Overview", href: "/dashboard/brand", shortcut: "G O" },
-  { label: "Brand Brain", href: "/dashboard/brand-brain", shortcut: "G B" },
-  { label: "Create", href: "/posts/new", shortcut: "G C" },
-  { label: "Content", href: "/posts", shortcut: "G P" },
-  { label: "Calendar", href: "/scheduler", shortcut: "G K" },
-  { label: "Approval", href: "/dashboard/approval", shortcut: "G A" },
-  { label: "Insights", href: "/analytics", shortcut: "G I" },
-  { label: "Settings", href: "/dashboard/settings", shortcut: "G S" }
-] as const;
 
 const getInitials = (name: string | null | undefined): string => {
   if (!name) {
@@ -88,13 +78,12 @@ export function TopBar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setCommandPaletteOpen]);
 
-  const crumbs = useMemo(() => {
-    const segments = pathname
-      .split("/")
-      .filter(Boolean)
-      .map((segment) => segment.replace(/-/g, " "));
-    return segments;
-  }, [pathname]);
+  const navigationItems = useMemo(() => getNavigationItems(user?.role ?? null), [user?.role]);
+  const commandItems = useMemo(() => getCommandNavigationItems(user?.role ?? null), [user?.role]);
+  const activeItem = useMemo(
+    () => getActiveNavigationItem(pathname, user?.role ?? null),
+    [pathname, user?.role]
+  );
 
   const isDark = resolvedTheme === "dark";
 
@@ -121,7 +110,7 @@ export function TopBar() {
               <SheetContent side="left" className="w-[280px]">
                 <SheetTitle className="text-transparent bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text">ARIA</SheetTitle>
                 <nav className="mt-6 space-y-2">
-                  {commandActions.map((item) => (
+                  {navigationItems.map((item) => (
                     <Link key={item.href} href={item.href} className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]">
                       {item.label}
                     </Link>
@@ -131,8 +120,10 @@ export function TopBar() {
             </Sheet>
 
             <div>
-              <p className="text-xs text-[var(--text-muted)]">Dashboard</p>
-              <p className="text-sm font-semibold capitalize text-[var(--text-primary)]">{crumbs.join(" / ") || "overview"}</p>
+              <p className="text-xs text-[var(--text-muted)]">ARIA Workspace</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {activeItem?.breadcrumbLabel ?? "Workspace"}
+              </p>
             </div>
           </div>
 
@@ -221,7 +212,7 @@ export function TopBar() {
             <CommandList>
               <CommandEmpty>No results found.</CommandEmpty>
               <CommandGroup heading="Navigate">
-                {commandActions.map((item) => (
+                {commandItems.map((item) => (
                   <CommandItem
                     key={item.href}
                     onSelect={() => {
@@ -230,7 +221,7 @@ export function TopBar() {
                     }}
                   >
                     {item.label}
-                    <CommandShortcut>{item.shortcut}</CommandShortcut>
+                    <CommandShortcut>{item.commandShortcut}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
