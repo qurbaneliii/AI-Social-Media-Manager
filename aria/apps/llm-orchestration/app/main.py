@@ -218,6 +218,7 @@ async def lifespan(app: FastAPI):
         db_pool = getattr(app.state, "db_pool", None)
         if db_pool is not None:
             await db_pool.close()
+            app.state.db_pool = None
 
 
 app = FastAPI(title="ARIA LLM Orchestration Service", lifespan=lifespan)

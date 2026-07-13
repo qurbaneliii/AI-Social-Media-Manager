@@ -19,6 +19,15 @@ from repositories import ProductRepository
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _pool_is_usable(pool: object | None) -> bool:
+    if pool is None:
+        return False
+    is_closing = getattr(pool, "is_closing", None)
+    if callable(is_closing):
+        return not bool(is_closing())
+    return not bool(getattr(pool, "_closed", False))
+
+
 class WorkspaceContext(BaseModel):
     workspace_id: str
     workspace_name: str
@@ -36,7 +45,7 @@ def get_app_settings(request: Request) -> AppSettings:
 
 def get_ai_orchestrator(request: Request) -> AIOrchestrator:
     db_pool = getattr(request.app.state, "db_pool", None)
-    persistence_repository = AIPersistenceRepository(db_pool) if db_pool is not None else None
+    persistence_repository = AIPersistenceRepository(db_pool) if _pool_is_usable(db_pool) else None
     return AIOrchestrator(
         llm_client=LLMClient(LLMSettings()),
         persistence_repository=persistence_repository,
@@ -45,14 +54,14 @@ def get_ai_orchestrator(request: Request) -> AIOrchestrator:
 
 def get_persistence_repository(request: Request) -> AIPersistenceRepository:
     db_pool = getattr(request.app.state, "db_pool", None)
-    if db_pool is None:
+    if not _pool_is_usable(db_pool):
         raise HTTPException(status_code=503, detail="AI persistence database pool is not configured.")
     return AIPersistenceRepository(db_pool)
 
 
 def get_product_repository(request: Request) -> ProductRepository:
     db_pool = getattr(request.app.state, "db_pool", None)
-    if db_pool is None:
+    if not _pool_is_usable(db_pool):
         raise APIError(503, "DATABASE_UNAVAILABLE", "The persistence database is not configured.")
     return ProductRepository(db_pool)
 

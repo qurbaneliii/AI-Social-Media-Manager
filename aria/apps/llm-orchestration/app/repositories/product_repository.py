@@ -28,9 +28,18 @@ def _decode(value: Any, fallback: Any) -> Any:
     return value
 
 
+def _content_model_label(*, model: str | None, mock_mode: bool) -> str:
+    if model and model.strip():
+        return model.strip()
+    return "mock-mode" if mock_mode else "user-authored"
+
+
 def _approval_event(row: Any) -> dict[str, Any] | None:
     event = _dict(row)
     if event:
+        for key in ("event_id", "object_id", "reviewer_id"):
+            if event.get(key) is not None:
+                event[key] = str(event[key])
         event["requested_changes"] = _decode(event.get("requested_changes"), [])
         event["metadata"] = _decode(event.get("metadata"), {})
     return event
@@ -158,6 +167,7 @@ class ProductRepository:
             raise ValueError("At least one generated package is required.")
         first = packages[0]
         quality = first.get("quality_scores") or {}
+        content_model = _content_model_label(model=model, mock_mode=mock_mode)
         async with self.connection() as connection, connection.transaction():
             if idempotency_key:
                 existing = await connection.fetchval(
@@ -188,8 +198,8 @@ class ProductRepository:
                 campaign,
                 _json(first),
                 _json(quality),
-                _json({"mode": "mock" if mock_mode else "live", "package_count": len(packages)}),
-                model if not mock_mode else None,
+                _json({"mode": "mock" if mock_mode else "live", "package_count": len(packages), "model": content_model}),
+                content_model,
                 mock_mode,
                 idempotency_key,
             )
@@ -260,7 +270,7 @@ class ProductRepository:
             campaign=campaign,
             packages=[package],
             mock_mode=False,
-            model=None,
+            model="user-authored",
             idempotency_key=None,
         )
 
@@ -796,7 +806,7 @@ class ProductRepository:
                       workspace_id, object_id, object_type, previous_status, new_status, action,
                       reviewer_id, reviewer_role, actor_user_id, actor_role, reason,
                       requested_changes, decision_timestamp, metadata_json
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, $9, $10::jsonb, now(), $11::jsonb)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::varchar(32), $7, $8::varchar(32), $9, $10::jsonb, now(), $11::jsonb)
                     RETURNING event_id, object_id, object_type, previous_status, new_status, action,
                               actor_user_id AS reviewer_id, actor_role AS reviewer_role, reason,
                               requested_changes, decision_timestamp AS timestamp, metadata_json AS metadata

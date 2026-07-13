@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(payload.password, 12);
 
-    const user = await prisma.$transaction(async (transaction) => {
+    const user = await prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
       const createdUser = await transaction.user.create({
         data: {
           name: payload.name,
@@ -40,13 +41,21 @@ export async function POST(request: Request) {
       await transaction.aIWorkspace.create({
         data: {
           workspaceId,
-          name: `${payload.name}'s workspace`,
-          memberships: {
-            create: { userId: createdUser.id, role: payload.role }
-          },
-          brands: {
-            create: { brandId, name: payload.name }
-          }
+          name: `${payload.name}'s workspace`
+        }
+      });
+      await transaction.aIWorkspaceMembership.create({
+        data: {
+          workspaceId,
+          userId: createdUser.id,
+          role: payload.role
+        }
+      });
+      await transaction.aIBrand.create({
+        data: {
+          brandId,
+          workspaceId,
+          name: payload.name
         }
       });
       return createdUser;

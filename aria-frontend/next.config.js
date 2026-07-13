@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const path = require("path");
+
 /** @type {import('next').NextConfig} */
 const isStaticExport = process.env.NEXT_PUBLIC_IS_STATIC === "true";
 
 const nextConfig = {
+  outputFileTracingRoot: path.resolve(__dirname),
   images: {
     unoptimized: true
   },

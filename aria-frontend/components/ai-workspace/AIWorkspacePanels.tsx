@@ -18,6 +18,7 @@ import {
   UsersRound,
   type LucideIcon
 } from "lucide-react";
+import { getClientSession } from "@/lib/client-session";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,13 @@ function today(offsetDays = 0): string {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
   return date.toISOString().slice(0, 10);
+}
+
+function getActiveBrandId(): string {
+  if (typeof window === "undefined") {
+    return defaultBrandProfile.brand_id;
+  }
+  return window.localStorage.getItem("aria_company_id") ?? getClientSession().companyId ?? defaultBrandProfile.brand_id;
 }
 
 function readableError(error: unknown): string {
@@ -198,7 +206,10 @@ function BrandStatus({
 }
 
 function useBrandWorkspace() {
-  const [profile, setProfile] = useState<BrandProfile>(defaultBrandProfile);
+  const [profile, setProfile] = useState<BrandProfile>(() => ({
+    ...defaultBrandProfile,
+    brand_id: getActiveBrandId(),
+  }));
   const [validation, setValidation] = useState<BrandProfileValidationResult | null>(null);
   const [context, setContext] = useState<ProductContext | null>(null);
   const [loadingBrand, setLoadingBrand] = useState(false);
@@ -206,8 +217,10 @@ function useBrandWorkspace() {
 
   useEffect(() => {
     let active = true;
+    const activeBrandId = getActiveBrandId();
+    setProfile((current) => ({ ...current, brand_id: activeBrandId }));
     setLoadingBrand(true);
-    Promise.allSettled([getWorkspaceContext(), getBrandProfile(defaultBrandProfile.brand_id)])
+    Promise.allSettled([getWorkspaceContext(), getBrandProfile(activeBrandId)])
       .then(async ([contextResult, profileResult]) => {
         if (!active) {
           return;
@@ -221,7 +234,7 @@ function useBrandWorkspace() {
           setBrandError("");
           return;
         }
-        const fallbackValidation = await validateBrandProfile(defaultBrandProfile, true).catch(() => null);
+        const fallbackValidation = await validateBrandProfile({ ...defaultBrandProfile, brand_id: activeBrandId }, true).catch(() => null);
         if (!active) {
           return;
         }

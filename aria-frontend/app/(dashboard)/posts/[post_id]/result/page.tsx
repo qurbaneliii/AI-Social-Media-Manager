@@ -1,10 +1,6 @@
 import PostResultPageClient from "./page.client";
 
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  return [{ post_id: "sample" }, { post_id: "preview-post-id" }];
-}
+export const dynamic = "force-dynamic";
 
 export default function PostResultPage() {
   return <PostResultPageClient />;
