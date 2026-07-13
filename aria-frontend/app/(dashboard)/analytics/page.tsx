@@ -1,346 +1,101 @@
-// filename: app/(dashboard)/analytics/page.tsx
-// purpose: Audit and quality analytics view.
-
 "use client";
 
-import { Fragment, useMemo } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, AlertCircle, ArrowRight, BarChart3, Brain, FileText, History } from "lucide-react";
+import Link from "next/link";
+import { useMemo } from "react";
 
-import { AudienceConfidenceBadge } from "@/components/audience/AudienceConfidenceBadge";
-import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
 import { SkeletonBlock } from "@/components/ui/SkeletonBlock";
 import { QUALITY_SCORE_THRESHOLDS } from "@/config/constants";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useCompanyPosts } from "@/hooks/useCompanyPosts";
 import { getClientSession } from "@/lib/client-session";
 import { useCompanyStore } from "@/stores/useCompanyStore";
-import type { Platform, PostResult } from "@/types";
 
-type PostAnalyticsRow = PostResult & {
-  posting_timestamp?: string;
-  created_at?: string;
-  performance_metrics?: Record<string, number>;
-  platform_metrics?: Partial<Record<Platform, { engagement_rate?: number }>>;
-  platform_targets?: Platform[];
-};
-
-const toAnalyticsRow = (post: PostResult): PostAnalyticsRow => post as PostAnalyticsRow;
+function DataSourceBadge({ children }: { children: React.ReactNode }) {
+  return <span className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{children}</span>;
+}
 
 export default function AnalyticsPage() {
-  const companyId = useCompanyStore((s) => s.companyId) ?? getClientSession().companyId;
-
+  const previewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === "true" || process.env.PREVIEW_MODE === "true";
+  const companyId = useCompanyStore((state) => state.companyId) ?? getClientSession().companyId;
   const auditQuery = useAuditLog(companyId, 0, 50);
-
   const postsQuery = useCompanyPosts(companyId, 0);
   const isLoading = auditQuery.isLoading || postsQuery.isLoading;
 
-  const qualityData = useMemo(() => {
-    return (postsQuery.data ?? []).map((post) => {
-      const row = toAnalyticsRow(post);
-      return {
-      id: post.post_id.slice(0, 8),
-      quality: post.generated_package_json?.content_quality_score?.overall ?? 0,
-      posting_timestamp: row.posting_timestamp ?? row.created_at ?? post.post_id
-      };
-    });
-  }, [postsQuery.data]);
+  const qualityData = useMemo(() => (postsQuery.data ?? []).map((post) => ({
+    id: post.post_id,
+    label: post.generated_package_json?.variants?.[0]?.platform ?? "content",
+    score: Math.round(post.generated_package_json?.content_quality_score?.overall ?? 0)
+  })), [postsQuery.data]);
 
-  const engagementSeries = useMemo(() => {
-    const rows = postsQuery.data ?? [];
-    return rows.map((post) => {
-      const row = toAnalyticsRow(post);
-      const metrics = row.performance_metrics ?? {};
-      const perPlatform = row.platform_metrics ?? {};
-      return {
-        posting_timestamp: row.posting_timestamp ?? row.created_at ?? post.post_id,
-        engagement_rate: metrics.engagement_rate ?? 0,
-        instagram: perPlatform.instagram?.engagement_rate ?? 0,
-        linkedin: perPlatform.linkedin?.engagement_rate ?? 0,
-        facebook: perPlatform.facebook?.engagement_rate ?? 0,
-        x: perPlatform.x?.engagement_rate ?? 0,
-        tiktok: perPlatform.tiktok?.engagement_rate ?? 0,
-        pinterest: perPlatform.pinterest?.engagement_rate ?? 0
-      };
-    });
-  }, [postsQuery.data]);
-
-  const frequencySeries = useMemo(() => {
-    const rows = postsQuery.data ?? [];
-    const bucket = new Map<
-      string,
-      {
-        week: string;
-        instagram: number;
-        linkedin: number;
-        facebook: number;
-        x: number;
-        tiktok: number;
-        pinterest: number;
-      }
-    >();
-    rows.forEach((post) => {
-      const row = toAnalyticsRow(post);
-      const timestamp = row.posting_timestamp ?? row.created_at;
-      if (!timestamp) return;
-      const date = new Date(timestamp);
-      const weekKey = `${date.getUTCFullYear()}-W${Math.ceil((date.getUTCDate() + 6 - date.getUTCDay()) / 7)}`;
-      if (!bucket.has(weekKey)) {
-        bucket.set(weekKey, {
-          week: weekKey,
-          instagram: 0,
-          linkedin: 0,
-          facebook: 0,
-          x: 0,
-          tiktok: 0,
-          pinterest: 0
-        });
-      }
-      const entry = bucket.get(weekKey);
-      if (!entry) return;
-      const targets = row.platform_targets ?? [];
-      targets.forEach((target) => {
-        if (target === "instagram" || target === "linkedin" || target === "facebook" || target === "x" || target === "tiktok" || target === "pinterest") {
-          entry[target] += 1;
-        }
-      });
-    });
-    return Array.from(bucket.values());
-  }, [postsQuery.data]);
-
-  const avgConfidence = useMemo(() => {
-    const rows = postsQuery.data ?? [];
-    if (rows.length === 0) return 0;
-    const total = rows.reduce((acc, post) => acc + (post.generated_package_json?.audience_definition?.confidence ?? 0), 0);
-    return total / rows.length;
+  const averageQuality = qualityData.length ? Math.round(qualityData.reduce((sum, item) => sum + item.score, 0) / qualityData.length) : 0;
+  const averageConfidence = useMemo(() => {
+    const posts = postsQuery.data ?? [];
+    if (!posts.length) return 0;
+    return Math.round((posts.reduce((sum, post) => sum + (post.generated_package_json?.audience_definition?.confidence ?? 0), 0) / posts.length) * 100);
   }, [postsQuery.data]);
 
   if (!companyId) {
-    return <div className="rounded-xl border bg-white p-6 text-sm text-red-700">Company ID is required. Return to sign in.</div>;
+    return <div className="surface-card flex items-start gap-3 rounded p-5 text-sm text-red-700" role="alert"><AlertCircle aria-hidden="true" className="mt-0.5 size-5" /> Company context is missing. Sign in again to restore your workspace.</div>;
   }
 
   return (
-    <main className="space-y-6 rounded-2xl border bg-white p-6">
+    <section className="mx-auto w-full max-w-6xl space-y-7">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
-        <p className="text-sm text-slate-600">Review quality trends, audience confidence, and audit activity.</p>
+        <p className="label-xs mb-2">Decision support</p>
+        <h1>Insights</h1>
+        <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Understand generated content quality and workflow activity without confusing internal estimates with live platform analytics.</p>
+        {previewMode ? <div className="mt-3"><DataSourceBadge>Demo data</DataSourceBadge></div> : null}
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-xl border p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Posts analyzed</p>
-          {isLoading ? <SkeletonBlock className="mt-2 h-8 w-16 rounded" /> : <p className="mt-2 text-2xl font-semibold text-slate-900">{postsQuery.data?.length ?? 0}</p>}
-        </article>
-        <article className="rounded-xl border p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Audit events</p>
-          {isLoading ? <SkeletonBlock className="mt-2 h-8 w-16 rounded" /> : <p className="mt-2 text-2xl font-semibold text-slate-900">{auditQuery.data?.length ?? 0}</p>}
-        </article>
-        <article className="rounded-xl border p-4">
-          <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Audience confidence</p>
-          {isLoading ? <SkeletonBlock className="h-7 w-28 rounded-full" /> : <AudienceConfidenceBadge confidence={avgConfidence} />}
-        </article>
+      <div className="rounded border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <div className="flex items-start gap-3"><Activity aria-hidden="true" className="mt-0.5 size-5 shrink-0" /><p><strong>Internal data only.</strong> Live engagement, reach, and follower metrics will appear only after a verified platform integration supplies them.</p></div>
+      </div>
+
+      <dl className="grid border-y border-[var(--border)] sm:grid-cols-3">
+        <div className="py-5 sm:pr-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><FileText aria-hidden="true" className="size-4" /> Generated packages</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : qualityData.length}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: internal generation records</p></div>
+        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:px-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><BarChart3 aria-hidden="true" className="size-4" /> Average quality</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageQuality}/100`}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: AI quality estimate</p></div>
+        <div className="border-t border-[var(--border)] py-5 sm:border-l sm:border-t-0 sm:pl-6"><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><Brain aria-hidden="true" className="size-4" /> Audience confidence</dt><dd className="mt-2 text-3xl font-bold">{isLoading ? <SkeletonBlock className="h-9 w-14 rounded" /> : `${averageConfidence}%`}</dd><p className="mt-1 text-xs text-[var(--text-muted)]">Source: generated audience model</p></div>
+      </dl>
+
+      <section className="surface-card rounded p-5 sm:p-6" aria-labelledby="external-performance-heading">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="external-performance-heading">External performance</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Engagement, reach, impressions, clicks, and follower growth.</p></div><span className="rounded border border-slate-300 bg-[var(--bg-secondary)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]">Unavailable</span></div>
+        <p className="mt-4 text-sm text-[var(--text-secondary)]">Source: no verified social-platform analytics integration is configured. ARIA does not render zero-filled charts as performance data.</p>
       </section>
 
-      {avgConfidence < 0.55 ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          Audience confidence is low. Consider refreshing audience inputs before auto-publishing.
+      <section className="surface-card rounded p-5 sm:p-6" aria-labelledby="quality-heading">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div><h2 id="quality-heading">Content quality</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Model-generated review scores, not external performance.</p></div>
+          <DataSourceBadge>AI estimate</DataSourceBadge>
         </div>
-      ) : null}
 
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Quality score by post</h2>
-        {isLoading ? (
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-48 rounded" />
-            <SkeletonBlock className="h-64 w-full rounded" />
-          </div>
-        ) : qualityData.length === 0 ? (
-          <EmptyStateCard
-            title="No generated posts yet"
-            description="Generate at least one post package to visualize quality trends."
-            actionLabel="Generate content"
-            actionHref="/posts/new"
-          />
-        ) : (
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={qualityData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="id" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="quality" fill="#0d9488" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Engagement rate over time per platform</h2>
-        {isLoading ? (
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-56 rounded" />
-            <SkeletonBlock className="h-64 w-full rounded" />
-          </div>
-        ) : engagementSeries.length === 0 ? (
-          <EmptyStateCard
-            title="No engagement metrics available"
-            description="Once posts are published and metrics are synced, trend lines will appear here."
-          />
-        ) : (
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={engagementSeries}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="posting_timestamp" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="instagram" stroke="#ec4899" dot={false} />
-                <Line type="monotone" dataKey="linkedin" stroke="#2563eb" dot={false} />
-                <Line type="monotone" dataKey="facebook" stroke="#1d4ed8" dot={false} />
-                <Line type="monotone" dataKey="x" stroke="#111827" dot={false} />
-                <Line type="monotone" dataKey="tiktok" stroke="#14b8a6" dot={false} />
-                <Line type="monotone" dataKey="pinterest" stroke="#be123c" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Posting frequency by platform per week</h2>
-        {isLoading ? (
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-56 rounded" />
-            <SkeletonBlock className="h-64 w-full rounded" />
-          </div>
-        ) : frequencySeries.length === 0 ? (
-          <EmptyStateCard
-            title="No posting frequency data available"
-            description="Schedule and publish content to unlock weekly platform distribution charts."
-          />
-        ) : (
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={frequencySeries}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar stackId="a" dataKey="instagram" fill="#ec4899" />
-                <Bar stackId="a" dataKey="linkedin" fill="#2563eb" />
-                <Bar stackId="a" dataKey="facebook" fill="#1d4ed8" />
-                <Bar stackId="a" dataKey="x" fill="#111827" />
-                <Bar stackId="a" dataKey="tiktok" fill="#14b8a6" />
-                <Bar stackId="a" dataKey="pinterest" fill="#be123c" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Posts and performance metrics</h2>
-        {isLoading ? (
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-60 rounded" />
-            <SkeletonBlock className="h-52 w-full rounded" />
-          </div>
-        ) : postsQuery.data?.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-2 py-2">Post</th>
-                  <th className="px-2 py-2">Quality score</th>
-                  <th className="px-2 py-2">Platform targets</th>
-                  <th className="px-2 py-2">Status</th>
-                  <th className="px-2 py-2">Created at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {postsQuery.data.map((post) => {
-                  const row = toAnalyticsRow(post);
-                  const metrics = row.performance_metrics ?? {};
-                  return (
-                    <Fragment key={post.post_id}>
-                      <tr className="border-b">
-                        <td className="px-2 py-2 font-mono text-xs">{post.post_id}</td>
-                        <td className="px-2 py-2">{post.generated_package_json?.content_quality_score?.overall ?? 0}</td>
-                        <td className="px-2 py-2">{(row.platform_targets ?? []).join(", ") || "-"}</td>
-                        <td className="px-2 py-2">{post.status}</td>
-                        <td className="px-2 py-2">{row.created_at ? new Date(row.created_at).toLocaleString() : "-"}</td>
-                      </tr>
-                      <tr className="border-b bg-slate-50">
-                        <td className="px-2 py-2 text-xs text-slate-700" colSpan={5}>
-                          impressions {metrics.impressions ?? 0} | reach {metrics.reach ?? 0} | engagement_rate {metrics.engagement_rate ?? 0} |
-                          click_through_rate {metrics.click_through_rate ?? 0} | saves {metrics.saves ?? 0} | shares {metrics.shares ?? 0} |
-                          follower_growth_delta {metrics.follower_growth_delta ?? 0}
-                        </td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyStateCard
-            title="No posts available"
-            description="Create your first generated package to inspect quality and performance side by side."
-            actionLabel="Create post"
-            actionHref="/posts/new"
-          />
-        )}
-      </section>
-
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Audit log</h2>
-        {isLoading ? (
-          <div className="space-y-2">
-            <SkeletonBlock className="h-5 w-32 rounded" />
-            <SkeletonBlock className="h-52 w-full rounded" />
-          </div>
-        ) : auditQuery.data?.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-2 py-2">Actor</th>
-                  <th className="px-2 py-2">Action</th>
-                  <th className="px-2 py-2">Resource</th>
-                  <th className="px-2 py-2">Created at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditQuery.data.map((item, idx) => (
-                  <tr key={`${item.created_at ?? idx}-${idx}`} className="border-b">
-                    <td className="px-2 py-2">{item.actor ?? "system"}</td>
-                    <td className="px-2 py-2">{item.action ?? "-"}</td>
-                    <td className="px-2 py-2">{item.resource_type ?? "-"}</td>
-                    <td className="px-2 py-2">{item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyStateCard
-            title="No audit events found"
-            description="Audit events appear after scheduling, approvals, and publish lifecycle actions."
-          />
-        )}
-      </section>
-
-      <section className="rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Quality guidance</h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li>Good threshold: {QUALITY_SCORE_THRESHOLDS.good}+</li>
-          <li>Warning threshold: {QUALITY_SCORE_THRESHOLDS.warning}+</li>
+        {isLoading ? <div className="space-y-4"><SkeletonBlock className="h-10 w-full rounded" /><SkeletonBlock className="h-10 w-full rounded" /></div> : null}
+        {!isLoading && qualityData.length === 0 ? (
+          <div className="py-8 text-center"><BarChart3 aria-hidden="true" className="mx-auto mb-3 size-8 text-[var(--text-muted)]" /><h3>No quality data yet</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">Generate content to see internal quality checks.</p><Link href="/posts/new" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded border border-[var(--border-strong)] px-4 text-sm font-semibold">Create content <ArrowRight aria-hidden="true" className="size-4" /></Link></div>
+        ) : null}
+        <ul className="space-y-5">
+          {qualityData.slice(0, 8).map((item) => (
+            <li key={item.id}>
+              <div className="mb-2 flex items-center justify-between gap-4 text-sm"><span className="min-w-0 truncate capitalize text-[var(--text-secondary)]">{item.label} draft <span className="text-[var(--text-muted)]">#{item.id.slice(0, 8)}</span></span><strong>{item.score}/100</strong></div>
+              <div className="h-2 overflow-hidden rounded bg-[var(--bg-muted)]" role="img" aria-label={`Quality score ${item.score} out of 100`}><div className={`h-full rounded ${item.score >= QUALITY_SCORE_THRESHOLDS.good ? "bg-emerald-600" : item.score >= QUALITY_SCORE_THRESHOLDS.warning ? "bg-amber-500" : "bg-red-600"}`} style={{ width: `${Math.min(100, Math.max(0, item.score))}%` }} /></div>
+            </li>
+          ))}
         </ul>
       </section>
-    </main>
+
+      <section className="surface-card rounded p-5 sm:p-6" aria-labelledby="activity-heading">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 id="activity-heading">Recent workflow activity</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Trusted audit events from this workspace.</p></div><span className="rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]">Audit log</span></div>
+        {isLoading ? <div className="space-y-3"><SkeletonBlock className="h-14 w-full rounded" /><SkeletonBlock className="h-14 w-full rounded" /></div> : null}
+        {!isLoading && !auditQuery.data?.length ? <div className="py-8 text-center"><History aria-hidden="true" className="mx-auto mb-3 size-8 text-[var(--text-muted)]" /><h3>No audit events yet</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">Generation, approval, and planning actions will appear here.</p></div> : null}
+        <ol className="divide-y divide-[var(--border)]">
+          {auditQuery.data?.slice(0, 10).map((item, index) => (
+            <li key={`${item.created_at ?? index}-${index}`} className="grid gap-1 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="min-w-0"><p className="text-sm font-medium text-[var(--text-primary)]">{item.action ?? "Workflow activity"}</p><p className="truncate text-xs text-[var(--text-secondary)]">{item.resource_type ?? "workspace"} by {item.actor ?? "system"}</p></div>
+              <time className="text-xs text-[var(--text-muted)]" dateTime={item.created_at ?? undefined}>{item.created_at ? new Date(item.created_at).toLocaleString() : "Time unavailable"}</time>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </section>
   );
 }

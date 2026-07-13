@@ -373,11 +373,12 @@ export function ApprovalDashboard({ initialType = "all" }: ApprovalDashboardProp
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">AI approval</p>
-          <h1 className="text-2xl font-semibold text-[var(--text-primary)] md:text-3xl">Approval queue</h1>
+          <p className="label-xs mb-2">Human review</p>
+          <h1>Approval</h1>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">Review AI-assisted drafts, record trusted decisions, and preserve a clear audit trail.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
           {safetyLabels.map((label) => (
@@ -398,14 +399,11 @@ export function ApprovalDashboard({ initialType = "all" }: ApprovalDashboardProp
         </TabsList>
       </Tabs>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
+      <section className="surface-card rounded p-4" aria-labelledby="approval-filters-heading">
+          <h2 id="approval-filters-heading" className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Filter className="h-4 w-4" />
             Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h2>
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_180px_auto]">
             <Input
               value={brandFilter}
@@ -436,10 +434,9 @@ export function ApprovalDashboard({ initialType = "all" }: ApprovalDashboardProp
               Refresh
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid border-y border-[var(--border)] sm:grid-cols-2 xl:grid-cols-4">
         <StatusMetric label="Drafts" value={counts.draft} icon={Clock3} />
         <StatusMetric label="In review" value={counts.in_review} icon={ShieldAlert} />
         <StatusMetric label="Approved" value={counts.approved + counts.ready_for_scheduling} icon={CheckCircle2} />
@@ -456,7 +453,7 @@ export function ApprovalDashboard({ initialType = "all" }: ApprovalDashboardProp
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">
-        <Card>
+        <Card className="rounded">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Queue ({items.length})</CardTitle>
           </CardHeader>
@@ -483,7 +480,7 @@ export function ApprovalDashboard({ initialType = "all" }: ApprovalDashboardProp
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Draft details</CardTitle>
           </CardHeader>
@@ -597,15 +594,15 @@ function StatusMetric({
   icon: typeof ShieldCheck;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-4">
+    <div className="border-b border-[var(--border)] p-4 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+          <p className="label-xs">{label}</p>
           <p className="text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
         </div>
         <Icon className="h-5 w-5 text-[var(--brand-primary)]" />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

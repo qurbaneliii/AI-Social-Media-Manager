@@ -47,6 +47,37 @@ export interface BrandProfileResponse {
   persisted: boolean;
 }
 
+interface CanonicalBrandProfileRecord {
+  profile: BrandProfile;
+  validation: BrandProfileValidationResult;
+  profile_version: number;
+  updated_at?: string | null;
+}
+
+const PRODUCT_CONTEXT: ProductContext = {
+  product_name: "ARIA",
+  product_role: "AI Social Media Manager and Brand Manager",
+  default_workflow_mode: "approval_based",
+  supported_capabilities: ["brand_brain", "content_generation", "internal_calendar", "approval", "operational_insights"],
+  automation_boundaries: ["no_auto_publish", "no_auto_reply", "no_real_platform_scheduling", "no_external_analytics"],
+  default_safety_rules: [
+    "AI outputs are drafts until reviewed by a human.",
+    "Approval does not publish content.",
+    "Calendar readiness does not schedule to real platforms."
+  ],
+  required_brand_inputs: [
+    "brand_name",
+    "industry",
+    "products_or_services",
+    "target_audience",
+    "tone_of_voice",
+    "brand_values",
+    "platforms",
+    "business_goals"
+  ],
+  optional_manual_data_inputs: ["competitor_examples", "trend_keywords", "analytics_metrics", "campaign_brief"]
+};
+
 export interface PlatformContext {
   platform: string;
   content_type: string;
@@ -333,8 +364,10 @@ function getAuthToken(): string | null {
     return null;
   }
   return (
+    window.localStorage.getItem("aria_token") ??
     window.localStorage.getItem("auth_token") ??
     window.localStorage.getItem("token") ??
+    window.sessionStorage.getItem("aria_token") ??
     window.sessionStorage.getItem("auth_token") ??
     window.sessionStorage.getItem("token")
   );
@@ -369,6 +402,10 @@ async function requestAI<TResponse>(path: string, init: RequestInit = {}): Promi
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+  const workspaceId = window.localStorage.getItem("aria_workspace_id");
+  if (workspaceId && !headers.has("X-ARIA-Workspace-ID")) {
+    headers.set("X-ARIA-Workspace-ID", workspaceId);
+  }
 
   const response = await fetch(`${resolvePublicApiBase()}${path}`, { ...init, headers });
   if (!response.ok) {
@@ -387,26 +424,76 @@ function postJson<TResponse>(path: string, payload: unknown): Promise<TResponse>
   });
 }
 
-export function getWorkspaceContext(): Promise<ProductContext> {
-  return requestAI("/internal/ai/workspace-context");
+export async function getWorkspaceContext(): Promise<ProductContext> {
+  return PRODUCT_CONTEXT;
 }
 
-export function getBrandProfile(brandId: string): Promise<BrandProfileResponse> {
-  return requestAI(`/internal/ai/brand-profile/${encodeURIComponent(brandId)}`);
+function isPreviewMode(): boolean {
+  return typeof window !== "undefined" && window.localStorage.getItem("isPreview") === "true";
 }
 
-export function upsertBrandProfile(profile: BrandProfile): Promise<BrandProfileResponse> {
-  return postJson("/internal/ai/brand-profile", { profile });
+export async function getBrandProfile(brandId: string): Promise<BrandProfileResponse> {
+  if (isPreviewMode()) {
+    const profile: BrandProfile = {
+      brand_id: brandId,
+      brand_name: "ARIA Preview Brand",
+      industry: "Software",
+      description: "Explicit preview-only Brand Brain context.",
+      products_or_services: ["AI-assisted social content planning"],
+      target_audience: ["Social media teams"],
+      tone_of_voice: ["Clear", "Professional"],
+      brand_values: ["Truthfulness", "Human approval"],
+      forbidden_topics: [],
+      forbidden_words: [],
+      approved_claims: [],
+      competitors: [],
+      platforms: ["linkedin", "instagram"],
+      visual_style: {},
+      business_goals: ["Create approval-ready drafts"],
+      language_preferences: ["en"]
+    };
+    return {
+      profile,
+      validation: {
+        brand_id: brandId,
+        completeness_score: 89,
+        is_complete: false,
+        required_fields: PRODUCT_CONTEXT.required_brand_inputs,
+        missing_required_fields: [],
+        warnings: ["Preview context is not persisted."],
+        using_default_context: true
+      },
+      product_context: PRODUCT_CONTEXT,
+      persisted: false
+    };
+  }
+  const result = await requestAI<CanonicalBrandProfileRecord>(`/v1/brands/${encodeURIComponent(brandId)}/profile`);
+  return { profile: result.profile, validation: result.validation, product_context: PRODUCT_CONTEXT, persisted: true };
+}
+
+export async function upsertBrandProfile(profile: BrandProfile): Promise<BrandProfileResponse> {
+  if (isPreviewMode()) {
+    return getBrandProfile(profile.brand_id);
+  }
+  const result = await requestAI<CanonicalBrandProfileRecord>(`/v1/brands/${encodeURIComponent(profile.brand_id)}/profile`, {
+    method: "PUT",
+    body: JSON.stringify({ profile })
+  });
+  return { profile: result.profile, validation: result.validation, product_context: PRODUCT_CONTEXT, persisted: true };
 }
 
 export function validateBrandProfile(
   profile: BrandProfile,
   usingDefaultContext = false
 ): Promise<BrandProfileValidationResult> {
-  return postJson("/internal/ai/brand-profile/validate", {
-    profile,
-    using_default_context: usingDefaultContext
-  });
+  if (isPreviewMode()) {
+    return getBrandProfile(profile.brand_id).then((result) => result.validation);
+  }
+  void usingDefaultContext;
+  return requestAI<CanonicalBrandProfileRecord>(
+    `/v1/brands/${encodeURIComponent(profile.brand_id)}/profile/validate`,
+    { method: "POST", body: JSON.stringify({ profile }) }
+  ).then((result) => result.validation);
 }
 
 export function generateContentPackage(payload: ContentRequest): Promise<GeneratedContentPackage> {

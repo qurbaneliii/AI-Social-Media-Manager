@@ -18,16 +18,20 @@ Branch: `codex/aria-full-architecture-ui-ux-remediation`
 | 7 | Public runtime router extraction | Moved public `/v1/posts/*`, `/v1/companies/{company_id}/posts`, and `/v1/schedules/*` routes to `api/routers/public_runtime.py`; moved shared runtime dependencies to `api/dependencies.py` | Revert router extraction commit to restore inline `main.py` route definitions | `ruff`; public runtime contract tests; full llm-orchestration tests; Render-style local smoke |
 | 7 | Brand Brain workspace router extraction | Moved workspace context and Brand Profile GET/POST/PUT/validation routes to `api/routers/workspace.py` while preserving shared dependency overrides and error handling | Revert the workspace router extraction commit to restore inline `main.py` route definitions | `ruff`; Phase 8 product workspace tests; full llm-orchestration tests; Render-style local smoke |
 | C/D | Canonical browser API base and route contract cleanup | Centralized active clients on `NEXT_PUBLIC_API_BASE_URL`, removed legacy aliases, strengthened Render method/path assertions, and retired unmounted media/import controls | Revert this slice to restore alias resolution and legacy controls only if the public backend also regains authenticated media/import ownership | frontend typecheck, lint, build; public runtime contract tests; active-client source scan |
+| PR9 backend | Tenant/auth foundation | Added workspace, membership, and brand ownership; JWT issuer/audience verification; database-derived roles | Revert commits before applying migration 010; after migration, restore application code first and retain tenant columns until data export is complete | Backend tests, frontend typecheck/lint/tests |
+| PR9 backend | Persistent product workflows | Replaced process-memory post/calendar stores and legacy approval client paths with tenant-scoped PostgreSQL repositories and `/v1` routers | Revert clients and routers; do not drop persisted records during application rollback | Repository contract tests; live PostgreSQL migration transaction rolled back |
+| PR9 backend | OpenAPI contract sync | Added exported OpenAPI JSON and generated TypeScript schema with CI drift check | Remove generated client import and scripts only after restoring equivalent handwritten contracts | `npm run contracts:generate`; frontend typecheck |
+| PR9 backend | Deployment truthfulness | Render readiness now requires PostgreSQL; mock mode defaults off; Pages deployment is manual preview-only | Restore prior health path only if deployment accepts a non-ready backend; never restore implicit mock fallback | Render config review; backend LLM tests |
 
 ## Current Rollback Boundaries
 
-- No production database migrations have been applied by this branch.
+- No production database migrations have been applied by this branch. Migration 010 was executed against live PostgreSQL inside an explicit transaction and rolled back successfully.
 - No data-destructive commands have been run.
 - Provider-route retirement is intentionally reversible through git because the old behavior was unsafe for the canonical architecture but may still be useful for forensic comparison.
 - Approval queue response shape was kept stable: `items`, `count`, `limit`, and `offset` remain unchanged.
 
 ## Pending Migration Notes
 
-- When TypeScript contracts are generated from FastAPI OpenAPI, keep the previous handwritten contracts until all imports are moved and typecheck/build pass.
+- Generated FastAPI contracts are committed. Remaining UI-specific DTOs may stay handwritten, but canonical capability contracts already import generated types.
 - When removing duplicate root services, first prove they are not referenced by Docker Compose, GitHub Actions, Render, Vercel, package scripts, tests, or documentation.
 - When replacing preview auth with Supabase Auth, preserve a separately named demo mode that cannot be mistaken for authenticated production mode.

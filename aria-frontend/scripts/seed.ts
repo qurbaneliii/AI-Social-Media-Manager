@@ -11,7 +11,7 @@ async function upsertUser(input: {
 }) {
   const hashedPassword = await bcrypt.hash(input.password, 12);
 
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { email: input.email },
     update: {
       name: input.name,
@@ -25,26 +25,49 @@ async function upsertUser(input: {
       role: input.role
     }
   });
+  const workspaceId = `workspace_${user.id}`;
+  const brandId = `brand_${user.id}`;
+  await prisma.aIWorkspace.upsert({
+    where: { workspaceId },
+    update: { name: `${input.name}'s workspace` },
+    create: { workspaceId, name: `${input.name}'s workspace` }
+  });
+  await prisma.aIWorkspaceMembership.upsert({
+    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+    update: { role: input.role },
+    create: { workspaceId, userId: user.id, role: input.role }
+  });
+  await prisma.aIBrand.upsert({
+    where: { brandId },
+    update: { name: `${input.name} Brand` },
+    create: { brandId, workspaceId, name: `${input.name} Brand` }
+  });
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("The local seed script cannot run in production.");
+  }
+  const starterPassword = process.env.ARIA_SEED_STARTER_PASSWORD;
+  const adminPassword = process.env.ARIA_SEED_ADMIN_PASSWORD;
+  if (!starterPassword || !adminPassword) {
+    throw new Error("ARIA_SEED_STARTER_PASSWORD and ARIA_SEED_ADMIN_PASSWORD are required.");
+  }
   await upsertUser({
     name: "Starter User",
     email: "starter@ariaconsole.com",
-    password: "Starter123!",
+    password: starterPassword,
     role: "brand_manager"
   });
 
   await upsertUser({
     name: "Admin User",
     email: "admin@ariaconsole.com",
-    password: "Admin123!",
+    password: adminPassword,
     role: "agency_admin"
   });
 
-  console.log("Seed users created");
-  console.log("Email: starter@ariaconsole.com | Password: Starter123!");
-  console.log("Email: admin@ariaconsole.com | Password: Admin123!");
+  console.log("Local seed users, workspaces, memberships, and brands created.");
 }
 
 main()

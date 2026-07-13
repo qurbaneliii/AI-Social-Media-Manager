@@ -12,8 +12,9 @@ ARIA is an approval-based AI social media manager and brand manager. The MVP mus
 - Primary content-generation flow: `/posts/new` in the role-aware frontend shell
 - Primary content API: `/v1/posts/generate`
 - Public runtime router: `aria/apps/llm-orchestration/app/api/routers/public_runtime.py`
-- AI workspace API: `/internal/ai/*` on the llm-orchestration backend
-- Brand Brain workspace router: `aria/apps/llm-orchestration/app/api/routers/workspace.py`
+- Product API: authenticated, tenant-scoped `/v1/*` routes on the llm-orchestration backend
+- Brand Brain API: `/v1/brands/{brand_id}/profile`
+- Approval API: `/v1/approval/*`
 - Approval UI: `/dashboard/approval`
 - Deployment path: Vercel frontend, Render backend, Supabase database/auth-aligned storage
 
@@ -55,10 +56,9 @@ The single frontend navigation source is `aria-frontend/lib/navigation.ts`. Role
 ```mermaid
 flowchart LR
   Browser["Browser"] --> Frontend["aria-frontend on Vercel"]
-  Frontend --> CoreAPI["/v1/* core API"]
-  Frontend --> AIBackend["/internal/ai/* llm-orchestration"]
-  AIBackend --> Supabase["Supabase Postgres"]
-  AIBackend --> LLM["Centralized LLMClient"]
+  Frontend --> CoreAPI["Authenticated /v1/* product API"]
+  CoreAPI --> Supabase["Supabase Postgres"]
+  CoreAPI --> LLM["Centralized LLMClient"]
 ```
 
 ### Content Generation Flow
@@ -110,9 +110,22 @@ flowchart TD
   Real --> Failure["Fail loudly if required production env is missing"]
 ```
 
+## Authentication And Tenant Boundary
+
+- Next.js issues HS256 access tokens with required `sub`, `iss=aria-frontend`, `aud=aria-api`, `iat`, and `exp` claims.
+- FastAPI verifies those claims and resolves the active role from `ai_workspace_memberships`; token role metadata is not authorization.
+- Browser calls send `X-ARIA-Workspace-ID`. Every canonical repository query also filters by `workspace_id`.
+- Registration creates the user, workspace, membership, and first brand in one database transaction.
+- Direct Data API grants for the backend-owned `ai_*` tables are revoked from `anon` and `authenticated`.
+
+## Shared Contracts
+
+FastAPI OpenAPI is exported to `aria-frontend/openapi/aria.json`. `openapi-typescript` generates `aria-frontend/types/generated/aria-api.ts`. CI runs `npm run contracts:check` and fails on drift.
+
 ## Remaining Consolidation Work
 
 - Legacy `/dashboard/*` module pages still exist and need route-by-route retirement or migration after behavior is verified.
 - Root-level `apps/` and `packages/` still overlap with `aria/apps/` and `aria/packages/`.
-- Frontend contracts are still handwritten and should be synchronized from the FastAPI OpenAPI schema.
-- Backend `main.py` now includes the public runtime and Brand Brain workspace routers plus shared dependencies, but still owns too much generation, approval, and legacy route logic.
+- Secondary AI tools still use authenticated legacy `/internal/ai/*` routes. Production middleware verifies membership and matching brand context; approval and `/run` legacy paths return `410`.
+- Backend `main.py` still owns secondary AI route declarations and can be reduced further after those tools receive canonical routers.
+- Migration `010_pr9_backend_alignment.sql` is validated against live PostgreSQL but is not applied to the connected primary Supabase database from this branch.

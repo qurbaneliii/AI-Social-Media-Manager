@@ -31,6 +31,19 @@ export async function POST(request: Request) {
     }
 
     const token = signAuthToken({ userId: user.id, email: user.email, role: user.role });
+    const membership = await prisma.aIWorkspaceMembership.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        workspace: {
+          include: { brands: { orderBy: { createdAt: "asc" }, take: 1 } }
+        }
+      }
+    });
+
+    if (!membership) {
+      return NextResponse.json({ error: "Account workspace is not configured" }, { status: 409 });
+    }
 
     const response = NextResponse.json(
       {
@@ -40,7 +53,9 @@ export async function POST(request: Request) {
           email: user.email,
           name: user.name,
           role: user.role
-        }
+        },
+        workspace_id: membership.workspaceId,
+        brand_id: membership.workspace.brands[0]?.brandId ?? null
       },
       { status: 200 }
     );

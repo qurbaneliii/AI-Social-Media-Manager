@@ -1,8 +1,6 @@
-name: Deploy to GitHub Pages
+name: Deploy static preview to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +36,7 @@ jobs:
           npm run build
         env:
           NEXT_PUBLIC_IS_STATIC: true
+          NEXT_PUBLIC_PREVIEW_MODE: true
           NEXT_PUBLIC_BASE_PATH: /AI-Social-Media-Manager
           OPENAI_API_KEY: dummy
 

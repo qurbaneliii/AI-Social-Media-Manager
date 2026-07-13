@@ -281,7 +281,7 @@ export default function NewPostPage() {
 
   if (!companyId) {
     return (
-      <div className="rounded-xl border bg-white p-6 text-sm text-red-700">
+      <div className="rounded border bg-[var(--bg-surface)] p-6 text-sm text-red-700">
         Company ID is required. Return to sign in.
       </div>
     );
@@ -564,22 +564,35 @@ export default function NewPostPage() {
     (!isScheduled || Boolean(requestedPublishAt));
 
   return (
-    <main className="space-y-6 rounded-3xl border border-emerald-100 bg-white/95 p-5 shadow-sm sm:p-6 aria-fade-in">
+    <section className="space-y-6 aria-fade-in">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Content Generator</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Create</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Move through a guided flow: define context, draft with AI, refine, then generate your final package.
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          <p className="font-semibold text-slate-800">{saveHint}</p>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          <p className="font-semibold text-[var(--text-primary)]">{saveHint}</p>
           <p className="mt-0.5">Step {activeStep} of {wizardSteps.length}</p>
         </div>
       </header>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-2 sm:hidden" aria-label={`Step ${activeStep} of ${wizardSteps.length}`}>
+        <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+          <span>{wizardSteps[activeStep - 1]?.title}</span>
+          <span>{activeStep}/{wizardSteps.length}</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
+          <div
+            className="h-full rounded-full bg-[var(--brand-primary)] transition-[width] motion-reduce:transition-none"
+            style={{ width: `${(activeStep / wizardSteps.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="hidden gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         {wizardSteps.map((step) => {
           const isActive = activeStep === step.id;
           const isComplete = activeStep > step.id;
@@ -593,21 +606,21 @@ export default function NewPostPage() {
                   setActiveStep(step.id);
                 }
               }}
-              className={`rounded-xl border px-3 py-3 text-left transition ${
+              className={`rounded-lg border px-3 py-3 text-left transition-colors motion-reduce:transition-none ${
                 isActive
-                  ? "border-emerald-300 bg-emerald-50"
+                  ? "border-[var(--brand-primary)] bg-[var(--bg-elevated)]"
                   : isComplete
-                    ? "border-emerald-200 bg-emerald-50/50"
-                    : "border-slate-200 bg-white"
+                    ? "border-[var(--border-strong)] bg-[var(--bg-secondary)]"
+                    : "border-[var(--border)] bg-[var(--bg-surface)]"
               }`}
               aria-current={isActive ? "step" : undefined}
             >
-              <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {isComplete ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" /> : null}
+              <p className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-normal text-[var(--text-muted)]">
+                {isComplete ? <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)]" /> : null}
                 Step {step.id}
               </p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{step.title}</p>
-              <p className="mt-1 text-xs text-slate-600">{step.description}</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{step.title}</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{step.description}</p>
             </button>
           );
         })}
@@ -615,7 +628,7 @@ export default function NewPostPage() {
 
       <form className="space-y-5" onSubmit={submitGenerateRequest}>
         {activeStep === 1 ? (
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5">
             <header className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-slate-900">Topic + Platform Selection</h2>
               <p className="text-xs text-slate-500">Fields marked by validation must be completed before next step.</p>
@@ -630,7 +643,7 @@ export default function NewPostPage() {
                     type="button"
                     onClick={() => form.setValue("post_intent", intent, { shouldValidate: true })}
                     className={`rounded-full px-3 py-1 text-xs ${
-                      form.watch("post_intent") === intent ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      form.watch("post_intent") === intent ? "bg-teal-700 text-white" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
                     }`}
                   >
                     {intent}
@@ -678,7 +691,7 @@ export default function NewPostPage() {
                         form.setValue("target_platforms", next, { shouldValidate: true });
                       }}
                       className={`rounded-full px-3 py-1 text-xs capitalize ${
-                        selected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                        selected ? "bg-teal-700 text-white" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
                       }`}
                     >
                       {platform} ({PLATFORM_CHAR_LIMITS[platform]})
@@ -717,7 +730,7 @@ export default function NewPostPage() {
                     type="button"
                     onClick={() => form.setValue("urgency_level", "scheduled", { shouldValidate: true })}
                     className={`rounded-full px-3 py-1 text-xs ${
-                      isScheduled ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      isScheduled ? "bg-teal-700 text-white" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
                     }`}
                   >
                     Schedule later
@@ -729,7 +742,7 @@ export default function NewPostPage() {
                       form.setValue("requested_publish_at", undefined, { shouldValidate: true });
                     }}
                     className={`rounded-full px-3 py-1 text-xs ${
-                      !isScheduled ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      !isScheduled ? "bg-teal-700 text-white" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]"
                     }`}
                   >
                     Publish now
@@ -811,7 +824,7 @@ export default function NewPostPage() {
                 type="button"
                 onClick={handleBatchGenerate}
                 disabled={isBatchGenerating}
-                className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
               >
                 {isBatchGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <WandSparkles className="h-3.5 w-3.5" />}
                 {isBatchGenerating ? "Generating batch..." : "Generate batch"}
@@ -828,7 +841,7 @@ export default function NewPostPage() {
             </div>
 
             {isGeneratingAI || isBatchGenerating ? (
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="space-y-2 rounded border border-[var(--border)] bg-[var(--bg-surface)] p-3">
                 <SkeletonBlock className="h-4 w-40 rounded" />
                 <SkeletonBlock className="h-4 w-full rounded" />
                 <SkeletonBlock className="h-4 w-[92%] rounded" />
@@ -850,7 +863,7 @@ export default function NewPostPage() {
             ) : null}
 
             {contentDraft ? (
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="space-y-2 rounded border border-[var(--border)] bg-[var(--bg-surface)] p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Generated draft</p>
                 <textarea
                   value={contentDraft}
@@ -888,7 +901,7 @@ export default function NewPostPage() {
         ) : null}
 
         {activeStep === 3 ? (
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5">
             <header>
               <h2 className="text-lg font-semibold text-slate-900">Review + Refine</h2>
               <p className="text-sm text-slate-600">Improve tone, run quality checks, and enrich metadata before generation.</p>
@@ -952,7 +965,7 @@ export default function NewPostPage() {
                 </div>
 
                 {analysis ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-xs text-[var(--text-secondary)]">
                     <p className="font-semibold text-slate-900">Quality analysis</p>
                     <p>Engagement: {analysis.scores.engagement}</p>
                     <p>Clarity: {analysis.scores.clarity}</p>
@@ -966,7 +979,7 @@ export default function NewPostPage() {
                 ) : null}
 
                 {hashtags.length > 0 ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-xs text-[var(--text-secondary)]">
                     <p className="mb-2 font-semibold text-slate-900">Suggested hashtags (click to add as keyword)</p>
                     <div className="flex flex-wrap gap-2">
                       {hashtags.map((tag) => (
@@ -974,7 +987,7 @@ export default function NewPostPage() {
                           key={tag}
                           type="button"
                           onClick={() => addKeywordSuggestion(tag)}
-                          className="rounded-full bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200 hover:ring-emerald-300"
+                          className="rounded-full bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] ring-1 ring-[var(--border)] hover:ring-emerald-300"
                         >
                           #{tag}
                         </button>
@@ -984,11 +997,11 @@ export default function NewPostPage() {
                 ) : null}
 
                 {topics.length > 0 ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-xs text-[var(--text-secondary)]">
                     <p className="mb-2 font-semibold text-slate-900">Suggested topics</p>
                     <ul className="space-y-1">
                       {topics.map((topic) => (
-                        <li key={topic} className="flex items-start justify-between gap-3 rounded-md bg-white px-2 py-1.5">
+                        <li key={topic} className="flex items-start justify-between gap-3 rounded-md bg-[var(--bg-surface)] px-2 py-1.5">
                           <span>{topic}</span>
                           <button
                             type="button"
@@ -1004,7 +1017,7 @@ export default function NewPostPage() {
                 ) : null}
 
                 {batchResults.length > 0 ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-xs text-[var(--text-secondary)]">
                     <p className="mb-2 font-semibold text-slate-900">Batch generation results</p>
                     <ul className="space-y-1">
                       {batchResults.map((result, index) => (
@@ -1021,7 +1034,7 @@ export default function NewPostPage() {
         ) : null}
 
         {activeStep === 4 ? (
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-5">
             <header>
               <h2 className="text-lg font-semibold text-slate-900">Confirm + Generate</h2>
               <p className="text-sm text-slate-600">Review your payload before creating the final generated package.</p>
@@ -1072,7 +1085,7 @@ export default function NewPostPage() {
           </section>
         ) : null}
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+        <footer className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
           <div className="flex gap-2">
             <button
               type="button"
@@ -1087,7 +1100,7 @@ export default function NewPostPage() {
               <button
                 type="button"
                 onClick={goToNextStep}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                className="min-h-11 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white"
               >
                 Continue
               </button>
@@ -1113,6 +1126,6 @@ export default function NewPostPage() {
         onConfirm={clearDraft}
         onCancel={() => setShowResetConfirm(false)}
       />
-    </main>
+    </section>
   );
 }

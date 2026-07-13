@@ -1,0 +1,128 @@
+{
+  "date": "2026-07-13",
+  "environment": {
+    "frontend_url": "http://127.0.0.1:3201",
+    "backend_url": "http://127.0.0.1:8010",
+    "database_type": "isolated-local-postgresql-18",
+    "preview_mode": false,
+    "ai_mock_mode": true
+  },
+  "identity": {
+    "email": "e2e-7fe0bfe1@example.com",
+    "workspace_id": "workspace_cmrinaf7u0001vkdk4j6copyd",
+    "brand_id": "brand_cmrinaf7u0001vkdk4j6copyd"
+  },
+  "resource_ids": {
+    "generated_post_id": "8f021e51-4903-4754-baf8-64dcfe0aa4d5",
+    "manual_draft_id": "3ca07259-82db-4ee2-8b29-db18f234ea2e",
+    "calendar_item_id": "60405d93-4abe-4a97-ba6e-710e622beeb7"
+  },
+  "api_flow": {
+    "brand_profile_complete": true,
+    "generated_variant_count": 1,
+    "approval_status": "approved",
+    "approval_audit_count": 2,
+    "approval_actor_ids": [
+      "cmrinaf7u0001vkdk4j6copyd"
+    ],
+    "calendar_total": 1,
+    "unscheduled_total": 6,
+    "overview_summary": {
+      "drafts": 0,
+      "pending_approval": 1,
+      "changes_requested": 0,
+      "approved_internal_plans": 0,
+      "failed_generations": 0
+    },
+    "insights_metrics": {
+      "content_generated": 7,
+      "failed_generations": 0,
+      "approval_distribution": [
+        {
+          "approval_status": "approved",
+          "count": 1
+        },
+        {
+          "approval_status": "draft",
+          "count": 5
+        },
+        {
+          "approval_status": "in_review",
+          "count": 1
+        }
+      ],
+      "platform_distribution": [
+        {
+          "platform": "linkedin",
+          "count": 7
+        }
+      ],
+      "quality_distribution": {
+        "high": 0,
+        "medium": 4,
+        "low": 0
+      }
+    },
+    "capabilities": {
+      "database": "Available",
+      "authentication": "Configured",
+      "ai_provider": "Unavailable",
+      "ai_mock_mode": "Demo",
+      "media_storage": "Unavailable",
+      "external_scheduling": "Unavailable",
+      "publishing": "Unavailable",
+      "external_analytics": "Unavailable",
+      "background_workers": "Unavailable"
+    }
+  },
+  "restart_verification": {
+    "post_status": "generated",
+    "variant_count": 1,
+    "audit_count": 2,
+    "calendar_match": true
+  },
+  "sql_comparison": {
+    "drafts": 0,
+    "pending_approval": 1,
+    "changes_requested": 0,
+    "approved_internal_plans": 0,
+    "failed_generations": 0,
+    "content_generated": 7,
+    "platform_distribution": [
+      {
+        "platform": "linkedin",
+        "count": 7
+      }
+    ],
+    "approval_distribution": [
+      {
+        "approval_status": "approved",
+        "count": 1
+      },
+      {
+        "approval_status": "draft",
+        "count": 5
+      },
+      {
+        "approval_status": "in_review",
+        "count": 1
+      }
+    ]
+  },
+  "browser": {
+    "routes_verified": [
+      "/dashboard/brand",
+      "/dashboard/brand-brain",
+      "/posts/new",
+      "/posts",
+      "/dashboard/approval",
+      "/scheduler",
+      "/analytics",
+      "/dashboard/settings"
+    ],
+    "console_errors": [],
+    "page_errors": [],
+    "http_4xx_5xx": [],
+    "aborted_navigation_requests_observed": true
+  }
+}

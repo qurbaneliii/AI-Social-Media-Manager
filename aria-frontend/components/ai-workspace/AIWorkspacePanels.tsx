@@ -18,12 +18,12 @@ import {
   UsersRound,
   type LucideIcon
 } from "lucide-react";
+import { getClientSession } from "@/lib/client-session";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -105,6 +105,13 @@ function today(offsetDays = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
+function getActiveBrandId(): string {
+  if (typeof window === "undefined") {
+    return defaultBrandProfile.brand_id;
+  }
+  return window.localStorage.getItem("aria_company_id") ?? getClientSession().companyId ?? defaultBrandProfile.brand_id;
+}
+
 function readableError(error: unknown): string {
   if (error instanceof AIWorkspaceApiError) {
     return `${error.status}: ${error.message}`;
@@ -125,10 +132,10 @@ function SafetyBanner() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</Label>
+    <label className="block space-y-1.5">
+      <span className="label-xs block">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -199,7 +206,10 @@ function BrandStatus({
 }
 
 function useBrandWorkspace() {
-  const [profile, setProfile] = useState<BrandProfile>(defaultBrandProfile);
+  const [profile, setProfile] = useState<BrandProfile>(() => ({
+    ...defaultBrandProfile,
+    brand_id: getActiveBrandId(),
+  }));
   const [validation, setValidation] = useState<BrandProfileValidationResult | null>(null);
   const [context, setContext] = useState<ProductContext | null>(null);
   const [loadingBrand, setLoadingBrand] = useState(false);
@@ -207,8 +217,10 @@ function useBrandWorkspace() {
 
   useEffect(() => {
     let active = true;
+    const activeBrandId = getActiveBrandId();
+    setProfile((current) => ({ ...current, brand_id: activeBrandId }));
     setLoadingBrand(true);
-    Promise.allSettled([getWorkspaceContext(), getBrandProfile(defaultBrandProfile.brand_id)])
+    Promise.allSettled([getWorkspaceContext(), getBrandProfile(activeBrandId)])
       .then(async ([contextResult, profileResult]) => {
         if (!active) {
           return;
@@ -222,7 +234,7 @@ function useBrandWorkspace() {
           setBrandError("");
           return;
         }
-        const fallbackValidation = await validateBrandProfile(defaultBrandProfile, true).catch(() => null);
+        const fallbackValidation = await validateBrandProfile({ ...defaultBrandProfile, brand_id: activeBrandId }, true).catch(() => null);
         if (!active) {
           return;
         }
@@ -359,11 +371,16 @@ function BrandBrainPanel({ profile, setProfile, validation, setValidation, loadi
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Brand Brain" description="Configure brand-specific memory once. ARIA reuses it across every AI workflow." icon={Brain} />
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <PageHeader title="Brand Brain" description="Define the reusable identity, audience, language, and claim boundaries used by every AI workflow." icon={Brain} />
+        <Badge variant={validation?.using_default_context ? "outline" : "default"} className="w-fit">
+          {validation?.using_default_context ? "Demo context" : validation ? `${validation.completeness_score}% complete` : "Checking context"}
+        </Badge>
+      </div>
       <SafetyBanner />
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <Card>
+        <Card className="rounded">
           <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
             <Field label="Brand ID"><Input value={profile.brand_id} onChange={(event) => update("brand_id", event.target.value)} /></Field>
             <Field label="Brand name"><Input value={profile.brand_name} onChange={(event) => update("brand_name", event.target.value)} /></Field>
@@ -381,9 +398,9 @@ function BrandBrainPanel({ profile, setProfile, validation, setValidation, loadi
             <Field label="Business goals"><Textarea value={toLines(profile.business_goals)} onChange={(event) => update("business_goals", parseList(event.target.value))} /></Field>
             <Field label="Language preferences"><Textarea value={toLines(profile.language_preferences)} onChange={(event) => update("language_preferences", parseList(event.target.value))} /></Field>
           </CardContent>
-          <div className="flex flex-wrap gap-2 px-6 pb-6">
-            <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Brand Brain"}</Button>
-            <Button variant="outline" onClick={validateProfile} disabled={saving}>Validate completeness</Button>
+          <div className="flex flex-wrap gap-2 border-t border-[var(--border)] px-6 py-5">
+            <Button className="min-h-11" onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Brand Brain"}</Button>
+            <Button className="min-h-11" variant="outline" onClick={validateProfile} disabled={saving}>Validate completeness</Button>
           </div>
         </Card>
         <div className="space-y-4">

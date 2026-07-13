@@ -16,6 +16,7 @@ import type {
 import { IS_STATIC } from "@/lib/isStatic";
 import { PREVIEW_COMPANY_ID, PREVIEW_MODE_MESSAGE, mockGeneratedContent } from "@/lib/mockData";
 import { resolvePublicApiBase } from "@/lib/api/base";
+import type { components as ApiComponents } from "@/types/generated/aria-api";
 
 export interface ApiErrorPayload {
   code: string;
@@ -196,7 +197,19 @@ const getTokenFromSession = (): string | null => {
   if (typeof window === "undefined") {
     return null;
   }
-  return sessionStorage.getItem("aria_token") ?? localStorage.getItem("aria_token");
+  return (
+    sessionStorage.getItem("aria_token") ??
+    sessionStorage.getItem("token") ??
+    localStorage.getItem("aria_token") ??
+    localStorage.getItem("token")
+  );
+};
+
+const getWorkspaceId = (): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return sessionStorage.getItem("aria_workspace_id") ?? localStorage.getItem("aria_workspace_id");
 };
 
 const isPreviewMode = (): boolean => {
@@ -211,25 +224,28 @@ const isPreviewMode = (): boolean => {
 
 const getJsonHeaders = (): HeadersInit => {
   const token = getTokenFromSession();
+  const workspaceId = getWorkspaceId();
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(workspaceId ? { "X-ARIA-Workspace-ID": workspaceId } : {})
   };
 };
 
 const parseError = async (response: Response): Promise<ApiError> => {
-  let payload: Partial<ApiErrorPayload> = {};
+  let payload: Partial<ApiErrorPayload> & { error?: Partial<ApiErrorPayload> & { request_id?: string } } = {};
   try {
     payload = (await response.json()) as Partial<ApiErrorPayload>;
   } catch {
     payload = {};
   }
+  const error: Partial<ApiErrorPayload> & { request_id?: string } = payload.error ?? payload;
   return new ApiError({
-    code: payload.code ?? `HTTP_${response.status}`,
-    message: payload.message ?? `Request failed with status ${response.status}`,
-    trace_id: payload.trace_id,
-    retryable: payload.retryable ?? response.status >= 500,
-    details: payload.details
+    code: error.code ?? `HTTP_${response.status}`,
+    message: error.message ?? `Request failed with status ${response.status}`,
+    trace_id: error.trace_id ?? error.request_id,
+    retryable: error.retryable ?? response.status >= 500,
+    details: error.details
   });
 };
 
@@ -435,9 +451,90 @@ export const getAuditLog = async (company_id: string, limit: number, offset: num
     ];
   }
 
-  const payload = await requestJson<{ items?: AuditLogItem[] } | AuditLogItem[]>(
-    `/audit/${company_id}?limit=${limit}&offset=${offset}`,
-    { method: "GET" }
-  );
-  return Array.isArray(payload) ? payload : payload.items ?? [];
+  void company_id;
+  const payload = await requestJson<AuditLogItem[]>(`/v1/audit?limit=${limit}&offset=${offset}`, { method: "GET" });
+  return payload;
+};
+
+export interface OverviewResponse {
+  summary: {
+    drafts: number;
+    pending_approval: number;
+    changes_requested: number;
+    approved_internal_plans: number;
+    failed_generations: number;
+  };
+  recent_content: Array<Record<string, unknown>>;
+  upcoming_plans: Array<Record<string, unknown>>;
+  source: "internal_operational_data";
+  workspace_timezone: string;
+}
+
+export interface CalendarItemRecord {
+  calendar_item_id: string;
+  content_draft_id: string;
+  platform: string;
+  planned_at: string;
+  timezone: string;
+  planning_state: string;
+  approval_status: string;
+  topic?: string;
+}
+
+export interface UnscheduledContentRecord {
+  draft_id: string;
+  platform: string;
+  topic: string;
+  generation_status: string;
+  approval_status: string;
+  content_text?: string;
+}
+
+export type CapabilityRecord = ApiComponents["schemas"]["CapabilityStatus"];
+export type CapabilitiesResponse = ApiComponents["schemas"]["CapabilitiesResponse"];
+
+export const getOverview = (): Promise<OverviewResponse> => {
+  if (isPreviewMode()) {
+    return Promise.resolve({
+      summary: { drafts: 0, pending_approval: 0, changes_requested: 0, approved_internal_plans: 0, failed_generations: 0 },
+      recent_content: [],
+      upcoming_plans: [],
+      source: "internal_operational_data",
+      workspace_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    });
+  }
+  return requestJson("/v1/overview", { method: "GET" });
+};
+
+export const listCalendarItems = async (filters: { platform?: string; planning_state?: string } = {}): Promise<CalendarItemRecord[]> => {
+  if (isPreviewMode()) return [];
+  const params = new URLSearchParams();
+  if (filters.platform && filters.platform !== "all") params.set("platform", filters.platform);
+  if (filters.planning_state && filters.planning_state !== "all") params.set("planning_state", filters.planning_state);
+  const payload = await requestJson<{ items: CalendarItemRecord[] }>(`/v1/calendar/items?${params.toString()}`, { method: "GET" });
+  return payload.items;
+};
+
+export const listUnscheduledContent = async (): Promise<UnscheduledContentRecord[]> => {
+  if (isPreviewMode()) return [];
+  const payload = await requestJson<{ items: UnscheduledContentRecord[] }>("/v1/calendar/unscheduled", { method: "GET" });
+  return payload.items;
+};
+
+export const getCapabilities = (): Promise<CapabilitiesResponse> => {
+  if (isPreviewMode()) {
+    const unavailable = (detail: string): CapabilityRecord => ({ status: "Unavailable", detail, interactive: false });
+    return Promise.resolve({
+      database: { status: "Demo", detail: "Preview records are static and are not persisted.", interactive: false },
+      authentication: { status: "Demo", detail: "Preview identity is not production authentication.", interactive: false },
+      ai_provider: unavailable("No live provider is contacted in preview mode."),
+      ai_mock_mode: { status: "Demo", detail: "Deterministic preview output is enabled.", interactive: false },
+      media_storage: unavailable("Media storage is not implemented."),
+      external_scheduling: unavailable("Calendar is internal planning only."),
+      publishing: unavailable("Publishing is not implemented."),
+      external_analytics: unavailable("External analytics is not implemented."),
+      background_workers: unavailable("Background workers are not required for preview mode.")
+    });
+  }
+  return requestJson("/v1/capabilities", { method: "GET" });
 };

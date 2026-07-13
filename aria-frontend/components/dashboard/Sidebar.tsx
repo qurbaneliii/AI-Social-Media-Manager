@@ -39,12 +39,12 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen flex-col border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--bg-surface)_94%,transparent)] px-3 py-4 backdrop-blur lg:flex transition-all duration-300",
+        "sticky top-0 hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] px-3 py-4 lg:flex transition-[width] duration-200 motion-reduce:transition-none",
         isCollapsed ? "w-16" : "w-60"
       )}
     >
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/dashboard/brand" className={cn("font-black tracking-tight text-transparent bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text", isCollapsed ? "text-lg" : "text-2xl")}>ARIA</Link>
+        <Link href="/dashboard/brand" className={cn("font-black tracking-normal text-[var(--brand-primary)]", isCollapsed ? "text-lg" : "text-2xl")}>ARIA</Link>
         <Button variant="ghost" size="icon" onClick={() => setCollapsed(!isCollapsed)} aria-label="Toggle sidebar">
           {isCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
         </Button>
@@ -81,7 +81,7 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="mt-auto space-y-2 rounded-xl border border-[var(--border)] p-2">
+      <div className="mt-auto space-y-2 rounded-lg border border-[var(--border)] p-2">
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
