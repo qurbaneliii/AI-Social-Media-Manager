@@ -66,6 +66,25 @@ Settings reports database, authentication, AI provider, AI mock mode, media stor
 | Console and page errors | 0 across matrix |
 | Failed production network requests | 0 across matrix |
 
+## Persistent Browser Follow-up
+
+An additional non-preview production browser pass was run on `2026-07-13` against the isolated local PostgreSQL environment:
+
+- frontend: `next start` on `http://127.0.0.1:3201`
+- backend: `uvicorn` on `http://127.0.0.1:8010`
+- authenticated workspace user: isolated local test account
+- screenshots captured for all eight canonical routes under `docs/product/screenshots/pr9-persistent-e2e/`
+
+Results:
+
+- every canonical route rendered one shared shell marker and one `<main>`
+- no console errors
+- no page errors
+- no HTTP 4xx/5xx responses during the final route walk
+- persisted Brand Brain, Content, Approval, Calendar, Insights, and Settings data rendered in the canonical shell
+
+Observed request aborts were limited to navigation-cancelled RSC or chunk requests while changing routes; the final settled route states were clean.
+
 Production matrix dimensions: `1440x900`, `1280x800`, `1024x768`, `768x1024`, `390x844`, and `360x800`, in both light and dark themes. Every case asserted the expected URL, rendered theme, one shell marker, one main landmark, one sidebar instance, one mobile-navigation instance, one More trigger, one theme toggle, and no horizontal overflow.
 
 ## Limitations

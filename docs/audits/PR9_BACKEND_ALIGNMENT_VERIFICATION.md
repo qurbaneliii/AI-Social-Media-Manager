@@ -43,31 +43,33 @@ Starting backend-alignment SHA: `ba6c1155cb10801f59dde7946859f93d4cb2d3a4`
 
 ## Database Verification
 
-`aria/db/migrations/010_pr9_backend_alignment.sql` was submitted to the connected Supabase PostgreSQL engine as:
+`aria/db/migrations/010_pr9_backend_alignment.sql` was applied permanently to an isolated PostgreSQL 18 database created for PR #9 under `tmp/pr9-pg`.
 
-```sql
-BEGIN;
--- exact migration contents
-ROLLBACK;
-SELECT 'migration_010_validated_and_rolled_back';
-```
+Verification steps completed:
 
-Result: `migration_010_validated_and_rolled_back`.
-
-The migration was not persisted because the connected project exposes only its default branch. Applying it permanently requires an isolated development branch or explicit production migration authority.
+- pre-migration schema snapshot captured at `tmp/pr9-schema-before.sql`
+- migration runner applied `007`, `008`, `009`, and `010` successfully on the isolated database
+- rerun confirmed duplicate-application guard behavior with `[SKIP]` for all previously applied migrations
+- live backend suite executed against the same isolated database with no live-test skips
+- product runtime persistence flow and backend-restart persistence were both verified against the same database
 
 ## Verification Results
 
 | Command | Result |
 | --- | --- |
 | `python -m ruff check aria/apps/llm-orchestration/app aria/apps/llm-orchestration/tests` | Passed |
-| `python -m pytest aria/apps/llm-orchestration/tests -q` | Passed; 2 live-DB suites skipped without `DATABASE_URL` |
+| `python -m pytest aria/apps/llm-orchestration/tests -q -rA` with live DB env | Passed; `68 passed, 0 failed, 0 skipped` |
 | `npm run typecheck` | Passed |
 | `npm run lint` | Passed |
 | `npm test` | Passed; 5 tests |
 | `npm run contracts:generate` | Passed |
 | `npm audit --omit=dev` | Passed; 0 runtime vulnerabilities |
-| `npm run build` | Passed; exit 0; Next 15.5.20 compiled in 38s and generated 49/49 pages |
-| Production-built preview browser matrix | Passed; 96/96 across eight routes, six viewports, light and dark |
+| `npm run build` | Passed; exit 0; Next 15.5.20 compiled successfully with dynamic post detail routes |
+| Persistent non-preview browser route pass | Passed on eight canonical routes; one shell marker and one main landmark on each |
 
-Permanent migration and application-level live persistent end-to-end tests remain gated because the connected Supabase project exposes only its default branch and no database connection credential is available to the local runtime. The exact migration passed live PostgreSQL validation inside a rolled-back transaction.
+Additional fixes made during live verification:
+
+- `ProductRepository.create_content` now writes truthful non-null draft `model` values for both mock-generated and user-authored content
+- frontend registration now creates workspace, membership, and brand rows explicitly
+- the legacy persistence adapter no longer overwrites correct `workspace_id` values with legacy `brand_id` fallbacks
+- approval audit events now normalize UUID fields before Pydantic validation
